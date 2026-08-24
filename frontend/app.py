@@ -826,7 +826,7 @@ if st.session_state.page == 'form':
 
         col3, col4 = st.columns(2)
         with col3:
-            budget = st.selectbox("💸 Budget", ["low", "medium", "high"], index=1)
+            budget = st.selectbox("💸 Budget", ["", "low", "medium", "high"], index=0, placeholder="Any budget")
         with col4:
             min_rating = st.slider("⭐ Min Rating", min_value=1.0, max_value=5.0, value=3.5, step=0.1)
 
