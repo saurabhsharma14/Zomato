@@ -171,15 +171,12 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif !important;
 }
 
-/* ── Hide Streamlit Chrome (keep sidebar toggle visible) ── */
-#MainMenu {visibility: hidden !important;}
+/* ── Hide Streamlit Footer ── */
 footer {display: none !important;}
 
-/* Kill deploy button & toolbar — every known selector */
+/* Kill deploy button ONLY */
 .stDeployButton,
-[data-testid="stDeployButton"],
-[data-testid="stHeader"] [data-testid="stToolbar"],
-[data-testid="stToolbar"] {
+[data-testid="stDeployButton"] {
     display: none !important;
     visibility: hidden !important;
 }
