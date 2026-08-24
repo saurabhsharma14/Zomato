@@ -25,7 +25,17 @@ def load_data():
     from datasets import load_dataset
 
     dataset = load_dataset("ManikaSaini/zomato-restaurant-recommendation", split="train")
+    
+    # ── Memory Optimization ──
+    # Only keep the columns we need before converting to pandas to avoid OOM on Streamlit Cloud
+    needed_cols = ['name', 'location', 'cuisines', 'approx_cost(for two people)', 'rate']
+    dataset = dataset.select_columns([c for c in needed_cols if c in dataset.column_names])
+    
     df = dataset.to_pandas()
+    
+    del dataset
+    import gc
+    gc.collect()
 
     # ── Cleaning (from data/ingest_and_clean.py) ──
     rename_mapping = {
