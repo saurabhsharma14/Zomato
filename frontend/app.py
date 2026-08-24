@@ -174,9 +174,12 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Hide Streamlit Footer ── */
 footer {display: none !important;}
 
-/* Kill deploy button ONLY */
+/* Kill deploy button, GitHub icon, and fork buttons ONLY */
 .stDeployButton,
-[data-testid="stDeployButton"] {
+[data-testid="stDeployButton"],
+[data-testid="stGitHubIcon"],
+[data-testid="manage-app-button"],
+[data-testid="stAppViewerStatus"] {
     display: none !important;
     visibility: hidden !important;
 }
@@ -700,6 +703,31 @@ img { border-radius: 20px !important; box-shadow: none !important; }
     .r-name { font-size: 1.1rem; }
     .welcome { padding: 50px 24px 60px; }
     .welcome-features { flex-direction: column; align-items: center; gap: 20px; }
+    
+    /* Make the sidebar toggle (two arrows) super prominent on mobile */
+    [data-testid="collapsedControl"] {
+        background: linear-gradient(135deg, var(--purple), var(--purple-bright)) !important;
+        color: white !important;
+        border-radius: 50% !important;
+        width: 50px !important;
+        height: 50px !important;
+        box-shadow: 0 4px 15px rgba(160,32,240,0.5) !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 12px !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+    [data-testid="collapsedControl"] svg {
+        fill: white !important;
+        color: white !important;
+        width: 26px !important;
+        height: 26px !important;
+    }
+    [data-testid="collapsedControl"]:active {
+        transform: scale(0.9) !important;
+        box-shadow: 0 2px 8px rgba(160,32,240,0.3) !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
