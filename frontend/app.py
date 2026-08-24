@@ -186,8 +186,10 @@ footer {display: none !important;}
 }
 
 [data-testid="stHeader"] {
-    background: transparent !important;
-    backdrop-filter: none !important;
+    background: rgba(13, 11, 26, 0.6) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(160, 32, 240, 0.15) !important;
 }
 [data-testid="stHeader"]::after { display: none !important; }
 
@@ -706,59 +708,66 @@ img { border-radius: 20px !important; box-shadow: none !important; }
     .welcome-features { flex-direction: column; align-items: center; gap: 20px; }
 }
 
-/* Make the sidebar toggle super prominent (Innovative FAB) - Global */
+/* ── Sleek Mobile UX: Floating Filter Button ── */
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
 [data-testid="stExpandSidebarButton"] {
-    position: fixed !important;
-    bottom: 40px !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    background: linear-gradient(135deg, var(--purple), var(--purple-bright)) !important;
-    color: white !important;
-    border-radius: 30px !important;
-    width: auto !important;
-    height: 56px !important;
-    padding: 0 28px !important;
-    box-shadow: 0 8px 30px rgba(112,0,255,0.5) !important;
-    display: flex !important;
+    background: linear-gradient(135deg, rgba(160,32,240,0.15), rgba(112,0,255,0.15)) !important;
+    border: 1px solid rgba(160,32,240,0.4) !important;
+    border-radius: 20px !important;
+    padding: 6px 14px 6px 12px !important;
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
+    gap: 6px !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(112,0,255,0.2) !important;
+    transition: all 0.3s ease !important;
+    margin: 8px 12px !important;
+    width: auto !important;
+    height: auto !important;
+    position: relative !important;
     z-index: 9999 !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    backdrop-filter: blur(10px) !important;
 }
 
 [data-testid="collapsedControl"]:hover,
 [data-testid="stSidebarCollapsedControl"]:hover,
 [data-testid="stExpandSidebarButton"]:hover {
-    transform: translateX(-50%) translateY(-4px) scale(1.03) !important;
-    box-shadow: 0 12px 35px rgba(112,0,255,0.6) !important;
-}
-
-[data-testid="collapsedControl"]:active,
-[data-testid="stSidebarCollapsedControl"]:active,
-[data-testid="stExpandSidebarButton"]:active {
-    transform: translateX(-50%) translateY(0) scale(0.98) !important;
+    background: linear-gradient(135deg, rgba(160,32,240,0.3), rgba(112,0,255,0.3)) !important;
+    border-color: rgba(160,32,240,0.6) !important;
+    box-shadow: 0 6px 20px rgba(112,0,255,0.3) !important;
 }
 
 [data-testid="collapsedControl"] svg,
 [data-testid="stSidebarCollapsedControl"] svg,
 [data-testid="stExpandSidebarButton"] svg {
-    display: none !important;
+    color: #F0EAFF !important;
+    fill: currentColor !important;
+    width: 18px !important;
+    height: 18px !important;
+    display: block !important;
 }
 
-[data-testid="collapsedControl"]::before,
-[data-testid="stSidebarCollapsedControl"]::before,
-[data-testid="stExpandSidebarButton"]::before {
-    content: "☰  Explore & Filter";
+[data-testid="collapsedControl"]::after,
+[data-testid="stSidebarCollapsedControl"]::after,
+[data-testid="stExpandSidebarButton"]::after {
+    content: "Filters";
     font-family: 'Outfit', sans-serif;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: white;
-    white-space: nowrap;
+    font-size: 0.9rem;
+    font-weight: 600;
     letter-spacing: 0.5px;
+    color: #F0EAFF;
+}
+
+/* Mobile Sidebar Styling */
+@media (max-width: 768px) {
+    section[data-testid="stSidebar"] {
+        background: rgba(13, 11, 26, 0.95) !important;
+        backdrop-filter: blur(24px) !important;
+        -webkit-backdrop-filter: blur(24px) !important;
+        border-right: 1px solid rgba(160, 32, 240, 0.3) !important;
+        box-shadow: 4px 0 40px rgba(0,0,0,0.7) !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
