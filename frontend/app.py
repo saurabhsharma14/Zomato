@@ -3,7 +3,6 @@ import pandas as pd
 import json
 import os
 import base64
-import streamlit.components.v1 as components
 from groq import Groq
 
 # ── Page Config ──────────────────────────────
@@ -752,13 +751,12 @@ with st.sidebar:
     )
 
 # Inject JS to forcefully remove the "Press Enter to submit" text which Streamlit injects dynamically
-components.html(
+st.html(
     """
     <script>
-    const doc = window.parent.document;
     const hideInstructions = () => {
         // Find all elements that might contain the instruction text
-        const elements = doc.querySelectorAll('div, small, span, p');
+        const elements = document.querySelectorAll('div, small, span, p');
         elements.forEach(el => {
             if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
                 el.style.display = 'none';
@@ -773,11 +771,9 @@ components.html(
     
     // Set an observer to catch elements as they are dynamically added by Streamlit
     const observer = new MutationObserver(hideInstructions);
-    observer.observe(doc.body, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true });
     </script>
-    """,
-    height=0,
-    width=0
+    """
 )
 
 
