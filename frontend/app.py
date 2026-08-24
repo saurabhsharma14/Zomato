@@ -115,7 +115,7 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences, 
     top_20 = top_20.drop(columns=['rating_num_sort'])
 
     if top_20.empty:
-        return [], []
+        return []
 
     top_20 = top_20.where(pd.notnull(top_20), None)
     results = top_20.to_dict(orient="records")
@@ -195,20 +195,7 @@ Please return the best 5 restaurants from this list in the requested JSON format
                 seen_names.add(key)
                 deduped_primary.append(r)
 
-        # Build 'others' from candidates not chosen by LLM
-        others = []
-        for r in results:
-            rname = (r.get("name") or "").strip().lower()
-            if rname and rname not in seen_names:
-                others.append({
-                    "Name": r.get("name", "Unknown"),
-                    "Cuisine": r.get("cuisine", "N/A"),
-                    "Rating": r.get("rating", "N/A"),
-                    "Cost": r.get("cost", "N/A"),
-                    "AI_Explanation": None,
-                })
-
-        return deduped_primary, others[:5]
+        return deduped_primary
 
     except Exception as e:
         st.toast(f"⚠️ AI ranking unavailable, showing top results. ({e})", icon="⚠️")
@@ -227,7 +214,7 @@ Please return the best 5 restaurants from this list in the requested JSON format
                 })
             if len(fallback) == 5:
                 break
-        return fallback, []
+        return fallback
 
 
 # ══════════════════════════════════════════════
@@ -757,8 +744,6 @@ if 'page' not in st.session_state:
     st.session_state.page = 'form'
 if 'restaurants' not in st.session_state:
     st.session_state.restaurants = []
-if 'other_options' not in st.session_state:
-    st.session_state.other_options = []
 if 'search_params' not in st.session_state:
     st.session_state.search_params = {}
 
@@ -844,12 +829,11 @@ if st.session_state.page == 'form':
             st.warning("Please describe what you're looking for — or select a location / cuisine.")
         else:
             with st.spinner("Our AI concierge is curating the perfect spots for you..."):
-                restaurants, other_options = get_recommendations(
+                restaurants = get_recommendations(
                     df, location, budget, cuisine, min_rating, preferences,
                     all_locations, all_cuisines
                 )
             st.session_state.restaurants = restaurants
-            st.session_state.other_options = other_options
             st.session_state.search_params = {
                 'location': location,
                 'cuisine': cuisine,
@@ -867,7 +851,6 @@ if st.session_state.page == 'form':
 elif st.session_state.page == 'results':
     params = st.session_state.search_params
     restaurants = st.session_state.restaurants
-    other_options = st.session_state.get('other_options', [])
 
     # ── Refine / back row ──
     col_back, col_summary = st.columns([1, 3])
@@ -942,48 +925,6 @@ elif st.session_state.page == 'results':
                 </div>
             </div>
             """, unsafe_allow_html=True)
-
-        # ── Other options section ──
-        if other_options:
-            st.markdown("""
-            <div style="margin: 32px 0 16px; padding-top: 24px; border-top: 1px solid rgba(160,32,240,0.15);">
-                <p style="font-family:'Outfit',sans-serif; font-size:1rem; font-weight:700;
-                           color:#6B5F8A; margin:0 0 4px; letter-spacing:0.3px;">
-                    OTHER OPTIONS THAT MAY INTEREST YOU
-                </p>
-                <p style="color:#3D3560; font-size:0.78rem; margin:0 0 16px;">More spots worth exploring</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            for j, r in enumerate(other_options):
-                name = r.get("Name") or r.get("name", "Unknown")
-                cuis = r.get("Cuisine") or r.get("cuisine", "N/A")
-                rating = r.get("Rating") or r.get("rating", "N/A")
-                cost = r.get("Cost") or r.get("cost", "N/A")
-
-                try:
-                    rn = float(rating)
-                    stars = "★" * int(rn) + ("½" if rn - int(rn) >= 0.5 else "")
-                except (ValueError, TypeError):
-                    stars = "★★★"
-
-                cuis_display = cuis.title() if isinstance(cuis, str) else cuis
-
-                st.markdown(f"""
-                <div class="r-card" style="animation-delay:{j*0.06}s; opacity:0.75;">
-                    <div class="r-top">
-                        <div class="r-rank" style="background:rgba(107,95,138,0.3); color:#6B5F8A; box-shadow:none;">{j+1}</div>
-                        <div class="r-info">
-                            <p class="r-name" style="font-size:1.1rem;">{name}</p>
-                            <span class="r-stars">{stars} {rating}</span>
-                        </div>
-                    </div>
-                    <div class="r-tags">
-                        <span class="r-tag">🥘 {cuis_display}</span>
-                        <span class="r-tag">💸 ₹{cost} for two</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
 
     st.markdown("""
     <div class="ft">Made with 💜 by <b>District</b> — AI-Curated Dining Experiences</div>
