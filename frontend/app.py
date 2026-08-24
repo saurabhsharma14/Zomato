@@ -949,32 +949,55 @@ st.markdown(f"""
 # MAIN CONTENT
 # ══════════════════════════════════════════════
 if submitted:
-    # Auto-collapse sidebar on mobile so results are visible
+    # Auto-collapse sidebar after submit so results are visible
     components.html("""
 <script>
 (function() {
   var pd = window.parent.document;
-  // Close selectors — Streamlit uses different ones for the collapse button
+
+  // Selectors for Streamlit's sidebar collapse/close button
   var closeSelectors = [
     '[data-testid="stSidebarCollapseButton"]',
     'button[aria-label="Close sidebar"]',
     'button[aria-label="close sidebar"]',
     'button[aria-label="Collapse sidebar"]',
+    'button[aria-label="collapse sidebar"]',
     '[data-testid="stSidebar"] button',
   ];
-  // Only collapse on narrow viewports (mobile)
-  if (window.parent.innerWidth <= 768) {
+
+  // Retry every 100ms for up to 3 seconds (handles Streamlit re-render timing)
+  var attempts = 0;
+  var maxAttempts = 30;
+
+  function tryCollapse() {
+    // Check sidebar is actually open
+    var sidebar = pd.querySelector('[data-testid="stSidebar"]');
+    var isOpen = sidebar && (
+      sidebar.getAttribute('aria-expanded') === 'true' ||
+      !sidebar.style.transform ||
+      sidebar.style.transform === 'none'
+    );
+
     for (var i = 0; i < closeSelectors.length; i++) {
       var btn = pd.querySelector(closeSelectors[i]);
       if (btn) {
         var prev = btn.style.cssText;
-        btn.style.cssText = prev + ';display:block!important;visibility:visible!important;pointer-events:auto!important';
+        btn.style.cssText = prev + ';display:block!important;visibility:visible!important;pointer-events:auto!important;opacity:1!important';
         btn.click();
         btn.style.cssText = prev;
-        break;
+        return; // success
       }
     }
+
+    // Button not found yet — retry
+    attempts++;
+    if (attempts < maxAttempts) {
+      setTimeout(tryCollapse, 100);
+    }
   }
+
+  // Small initial delay to let Streamlit finish rendering
+  setTimeout(tryCollapse, 300);
 })();
 </script>
 """, height=0)
