@@ -44,13 +44,18 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
     if location:
         filtered = filtered[filtered['location'].str.contains(location.lower(), na=False, case=False)]
     if budget:
-        filtered = filtered[filtered['budget'].str.lower() == budget.lower()]
+        filtered = filtered[filtered['budget'].fillna('').str.lower() == budget.lower()]
     if cuisine:
         filtered = filtered[filtered['cuisine'].str.contains(cuisine.lower(), na=False, case=False)]
+    rating_num = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce')
     if min_rating > 0:
-        filtered = filtered[filtered['rating'] >= min_rating]
-
-    top_15 = filtered.sort_values(by="rating", ascending=False).head(15)
+        filtered = filtered[rating_num >= min_rating]
+        # Re-subset rating_num to match filtered if we want to use it for sorting, but easier to just assign it
+    
+    # Assign for reliable sorting, fill NaNs with 0
+    filtered['rating_num_sort'] = rating_num.reindex(filtered.index).fillna(0)
+    top_15 = filtered.sort_values(by="rating_num_sort", ascending=False).head(15)
+    top_15 = top_15.drop(columns=['rating_num_sort'])
 
     if top_15.empty:
         return []
