@@ -831,8 +831,8 @@ if st.session_state.page == 'form':
             min_rating = st.slider("⭐ Min Rating", min_value=1.0, max_value=5.0, value=3.5, step=0.1)
 
         preferences = st.text_area(
-            "✨ Your Request",
-            placeholder="e.g. best pizza in Koramangala, romantic rooftop dinner, great biryani near HSR...",
+            "✨ Describe what you're looking for (or use the filters above)",
+            placeholder="e.g. girlfriend ke saath pizza khaana hai, romantic rooftop dinner, best biryani in HSR...",
             height=90
         )
 
