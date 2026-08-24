@@ -21,7 +21,8 @@ st.set_page_config(
 @st.cache_data(show_spinner=False)
 def load_data():
     """Load the pre-cleaned Zomato dataset from local storage.
-    Cached so it only runs once per session / deployment."""
+    Cached so it only runs once per session / deployment.
+    (Cache invalidated to load new 'budget' column)"""
     import os
     
     # Check both potential paths depending on where streamlit is run from
