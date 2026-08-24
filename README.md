@@ -6,6 +6,13 @@
 [![Streamlit](https://img.shields.io/badge/Streamlit-App-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 [![Groq](https://img.shields.io/badge/Powered_by-Groq_LLM-F55036?logo=groq&logoColor=white)](https://groq.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-district.streamlit.app-purple?logo=streamlit&logoColor=white)](https://district.streamlit.app/)
+
+---
+
+## 🌐 Live Demo
+
+**Try it now:** [https://district.streamlit.app/](https://district.streamlit.app/)
 
 ---
 
