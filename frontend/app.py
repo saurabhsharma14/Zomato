@@ -704,51 +704,51 @@ img { border-radius: 20px !important; box-shadow: none !important; }
     .r-name { font-size: 1.1rem; }
     .welcome { padding: 50px 24px 60px; }
     .welcome-features { flex-direction: column; align-items: center; gap: 20px; }
-    
-    /* Make the sidebar toggle super prominent (Innovative FAB) */
-    [data-testid="collapsedControl"] {
-        position: fixed !important;
-        bottom: 40px !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        background: linear-gradient(135deg, var(--purple), var(--purple-bright)) !important;
-        color: white !important;
-        border-radius: 30px !important;
-        width: auto !important;
-        height: 56px !important;
-        padding: 0 28px !important;
-        box-shadow: 0 8px 30px rgba(112,0,255,0.5) !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        z-index: 9999 !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(10px) !important;
-    }
-    
-    [data-testid="collapsedControl"]:hover {
-        transform: translateX(-50%) translateY(-4px) scale(1.03) !important;
-        box-shadow: 0 12px 35px rgba(112,0,255,0.6) !important;
-    }
-    
-    [data-testid="collapsedControl"]:active {
-        transform: translateX(-50%) translateY(0) scale(0.98) !important;
-    }
+}
 
-    [data-testid="collapsedControl"] svg {
-        display: none !important;
-    }
+/* Make the sidebar toggle super prominent (Innovative FAB) - Global */
+[data-testid="collapsedControl"] {
+    position: fixed !important;
+    bottom: 40px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background: linear-gradient(135deg, var(--purple), var(--purple-bright)) !important;
+    color: white !important;
+    border-radius: 30px !important;
+    width: auto !important;
+    height: 56px !important;
+    padding: 0 28px !important;
+    box-shadow: 0 8px 30px rgba(112,0,255,0.5) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 9999 !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(10px) !important;
+}
 
-    [data-testid="collapsedControl"]::before {
-        content: "☰  Explore & Filter";
-        font-family: 'Outfit', sans-serif;
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: white;
-        white-space: nowrap;
-        letter-spacing: 0.5px;
-    }
+[data-testid="collapsedControl"]:hover {
+    transform: translateX(-50%) translateY(-4px) scale(1.03) !important;
+    box-shadow: 0 12px 35px rgba(112,0,255,0.6) !important;
+}
+
+[data-testid="collapsedControl"]:active {
+    transform: translateX(-50%) translateY(0) scale(0.98) !important;
+}
+
+[data-testid="collapsedControl"] svg {
+    display: none !important;
+}
+
+[data-testid="collapsedControl"]::before {
+    content: "☰  Explore & Filter";
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    letter-spacing: 0.5px;
 }
 </style>
 """, unsafe_allow_html=True)
