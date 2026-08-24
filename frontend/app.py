@@ -192,16 +192,18 @@ button[kind="header"],
 }
 [data-testid="stHeader"]::after { display: none !important; }
 
-/* ── Force sidebar expanded and ideal size ── */
-section[data-testid="stSidebar"] {
-    width: 380px !important;
-    min-width: 380px !important;
-    max-width: 380px !important;
-    transform: none !important;
-}
-section[data-testid="stSidebar"][aria-expanded="false"] {
-    margin-left: 0 !important;
-    transform: none !important;
+/* ── Desktop: Force sidebar expanded and ideal size ── */
+@media (min-width: 769px) {
+    section[data-testid="stSidebar"] {
+        width: 380px !important;
+        min-width: 380px !important;
+        max-width: 380px !important;
+        transform: none !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="false"] {
+        margin-left: 0 !important;
+        transform: none !important;
+    }
 }
 
 /* ── App Background ── */
