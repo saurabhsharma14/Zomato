@@ -949,6 +949,36 @@ st.markdown(f"""
 # MAIN CONTENT
 # ══════════════════════════════════════════════
 if submitted:
+    # Auto-collapse sidebar on mobile so results are visible
+    components.html("""
+<script>
+(function() {
+  var pd = window.parent.document;
+  // Close selectors — Streamlit uses different ones for the collapse button
+  var closeSelectors = [
+    '[data-testid="stSidebarCollapseButton"]',
+    'button[aria-label="Close sidebar"]',
+    'button[aria-label="close sidebar"]',
+    'button[aria-label="Collapse sidebar"]',
+    '[data-testid="stSidebar"] button',
+  ];
+  // Only collapse on narrow viewports (mobile)
+  if (window.parent.innerWidth <= 768) {
+    for (var i = 0; i < closeSelectors.length; i++) {
+      var btn = pd.querySelector(closeSelectors[i]);
+      if (btn) {
+        var prev = btn.style.cssText;
+        btn.style.cssText = prev + ';display:block!important;visibility:visible!important;pointer-events:auto!important';
+        btn.click();
+        btn.style.cssText = prev;
+        break;
+      }
+    }
+  }
+})();
+</script>
+""", height=0)
+
     if not location or not cuisine or not preferences:
         st.warning("Please fill out all the mandatory fields (Location, Cuisine, Vibe & Preferences) to begin your search.")
     else:
