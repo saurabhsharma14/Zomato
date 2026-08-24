@@ -28,6 +28,25 @@ def load_data():
     return df
 
 
+@st.cache_data(show_spinner=False)
+def get_unique_locations(df):
+    """Return sorted list of unique locations, title-cased for display."""
+    locs = sorted(df['location'].dropna().unique())
+    return [loc.title() for loc in locs]
+
+
+@st.cache_data(show_spinner=False)
+def get_unique_cuisines(df):
+    """Return sorted list of unique individual cuisines extracted from all entries."""
+    all_cuisines = set()
+    for c in df['cuisine'].dropna():
+        for item in str(c).split(','):
+            stripped = item.strip().title()
+            if stripped:
+                all_cuisines.add(stripped)
+    return sorted(all_cuisines)
+
+
 def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
     """Filter restaurants and call Groq LLM to rank + explain them."""
     filtered = df.copy()
@@ -610,6 +629,64 @@ img { border-radius: 20px !important; box-shadow: none !important; }
 [data-testid="stHorizontalBlock"] {
     gap: 12px !important;
 }
+
+/* ══════════════════════════════════════════════
+   AUTOCOMPLETE SEARCH WIDGET
+   ══════════════════════════════════════════════ */
+
+/* The search text input at the top of the autocomplete widget */
+div[data-testid="stTextInput"]:has(input[id*="location_search"]),
+div[data-testid="stTextInput"]:has(input[id*="cuisine_search"]) {
+    margin-bottom: 0 !important;
+}
+
+div[data-testid="stTextInput"]:has(input[id*="location_search"]) input,
+div[data-testid="stTextInput"]:has(input[id*="cuisine_search"]) input {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-bottom: 1px solid rgba(160,32,240,0.08) !important;
+}
+
+/* The selectbox dropdown beneath the search input */
+div[data-testid="stSelectbox"]:has(div[data-baseweb="select"]) {
+    margin-top: 0 !important;
+}
+
+/* Style the dropdown trigger to look like it continues from the input */
+[data-testid="stSelectbox"]:has([data-testid*="location_select"]) [data-baseweb="select"] > div,
+[data-testid="stSelectbox"]:has([data-testid*="cuisine_select"]) [data-baseweb="select"] > div {
+    border-top: none !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+    background: rgba(13, 11, 26, 0.85) !important;
+}
+
+/* Dropdown option list */
+[role="listbox"] {
+    background: rgba(20, 16, 38, 0.98) !important;
+    border: 1px solid var(--border-hover) !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(20px) !important;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5) !important;
+    padding: 4px !important;
+}
+
+/* Individual option */
+[role="option"] {
+    border-radius: 8px !important;
+    color: var(--text-2) !important;
+    font-size: 0.88rem !important;
+    padding: 8px 14px !important;
+    transition: all 0.15s ease !important;
+}
+
+[role="option"]:hover,
+[role="option"][aria-selected="true"] {
+    background: rgba(160, 32, 240, 0.15) !important;
+    color: var(--purple-neon) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -623,6 +700,10 @@ if 'restaurants' not in st.session_state:
     st.session_state.restaurants = []
 if 'search_params' not in st.session_state:
     st.session_state.search_params = {}
+if 'location_query' not in st.session_state:
+    st.session_state.location_query = ''
+if 'cuisine_query' not in st.session_state:
+    st.session_state.cuisine_query = ''
 
 
 # ══════════════════════════════════════════════
@@ -658,21 +739,60 @@ st.markdown(f"""
 # PAGE: FORM
 # ══════════════════════════════════════════════
 if st.session_state.page == 'form':
-    with st.form("preferences_form", clear_on_submit=False):
-        st.markdown(
-            '<p style="font-family:Outfit,sans-serif; font-size:1.15rem; font-weight:700; '
-            'color:#F0EAFF; margin:0 0 4px;">Your Preferences</p>'
-            '<p style="color:#6B5F8A; font-size:0.82rem; margin:0 0 18px; line-height:1.5;">'
-            'Tell us what you\'re craving.</p>',
-            unsafe_allow_html=True
+    # ── Get options for autocomplete ──
+    all_locations = get_unique_locations(df)
+    all_cuisines = get_unique_cuisines(df)
+
+    # ── Location autocomplete (outside form so search input triggers rerun) ──
+    st.markdown(
+        '<p style="font-family:Outfit,sans-serif; font-size:1.15rem; font-weight:700; '
+        'color:#F0EAFF; margin:0 0 4px;">Your Preferences</p>'
+        '<p style="color:#6B5F8A; font-size:0.82rem; margin:0 0 18px; line-height:1.5;">'
+        'Tell us what you\'re craving.</p>',
+        unsafe_allow_html=True
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        loc_query = st.text_input(
+            "📍 Location",
+            placeholder="Search area... e.g. BTM",
+            key="location_search_input"
         )
+        loc_filtered = [
+            loc for loc in all_locations
+            if loc_query.lower() in loc.lower()
+        ] if loc_query else all_locations
+        loc_options = ["— Select a location —"] + loc_filtered
+        loc_selection = st.selectbox(
+            "Matching locations",
+            options=loc_options,
+            key="location_select",
+            label_visibility="collapsed"
+        )
+        location = "" if loc_selection == "— Select a location —" else loc_selection
 
-        col1, col2 = st.columns(2)
-        with col1:
-            location = st.text_input("📍 Location", placeholder="e.g. Indiranagar")
-        with col2:
-            cuisine = st.text_input("🥘 Cuisine", placeholder="e.g. North Indian")
+    with col2:
+        cui_query = st.text_input(
+            "🥘 Cuisine",
+            placeholder="Search cuisine... e.g. North Indian",
+            key="cuisine_search_input"
+        )
+        cui_filtered = [
+            c for c in all_cuisines
+            if cui_query.lower() in c.lower()
+        ] if cui_query else all_cuisines
+        cui_options = ["— Select a cuisine —"] + cui_filtered
+        cui_selection = st.selectbox(
+            "Matching cuisines",
+            options=cui_options,
+            key="cuisine_select",
+            label_visibility="collapsed"
+        )
+        cuisine = "" if cui_selection == "— Select a cuisine —" else cui_selection
 
+    with st.form("preferences_form", clear_on_submit=False):
         col3, col4 = st.columns(2)
         with col3:
             budget = st.selectbox("💸 Budget", ["low", "medium", "high"], index=1)
