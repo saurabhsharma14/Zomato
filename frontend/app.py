@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import pandas as pd
 import json
 import os
@@ -10,36 +9,27 @@ from groq import Groq
 st.set_page_config(
     page_title="District — AI Restaurant Concierge",
     page_icon="💜",
-    layout="wide",
+    layout="centered",          # centered keeps content tight on all screens
     initial_sidebar_state="collapsed"
 )
 
 
 # ══════════════════════════════════════════════
-# DATA LOADING & BACKEND LOGIC (merged from backend/main.py)
+# DATA LOADING & BACKEND LOGIC
 # ══════════════════════════════════════════════
 
 @st.cache_data(show_spinner=False)
 def load_data():
-    """Load the pre-cleaned Zomato dataset from local storage.
-    Cached so it only runs once per session / deployment.
-    (Cache invalidated to load new 'budget' column)"""
-    import os
-    
-    # Check both potential paths depending on where streamlit is run from
+    """Load the pre-cleaned Zomato dataset from local storage."""
     file_path = "data/cleaned_restaurants.parquet"
     if not os.path.exists(file_path):
         file_path = os.path.join(os.path.dirname(__file__), "..", "data", "cleaned_restaurants.parquet")
-        
     df = pd.read_parquet(file_path)
     return df
 
 
 def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
-    """Filter restaurants and call Groq LLM to rank + explain them.
-    Returns a list of restaurant dicts."""
-
-    # ── Pre-filtering (from backend/main.py) ──
+    """Filter restaurants and call Groq LLM to rank + explain them."""
     filtered = df.copy()
 
     if location:
@@ -51,9 +41,7 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
     rating_num = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce')
     if min_rating > 0:
         filtered = filtered[rating_num >= min_rating]
-        # Re-subset rating_num to match filtered if we want to use it for sorting, but easier to just assign it
-    
-    # Assign for reliable sorting, fill NaNs with 0
+
     filtered['rating_num_sort'] = rating_num.reindex(filtered.index).fillna(0)
     top_15 = filtered.sort_values(by="rating_num_sort", ascending=False).head(15)
     top_15 = top_15.drop(columns=['rating_num_sort'])
@@ -64,7 +52,6 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
     top_15 = top_15.where(pd.notnull(top_15), None)
     results = top_15.to_dict(orient="records")
 
-    # ── LLM Ranking (from backend/main.py) ──
     system_prompt = """You are an expert AI restaurant concierge. Your goal is to select the top 5 best matching restaurants from the provided pre-filtered list based on the user's explicit preferences and vibe.
 
 CRITICAL RULES:
@@ -109,7 +96,6 @@ Please return the best 5 restaurants from this list in the requested JSON format
     try:
         groq_client = Groq(api_key=st.secrets["GROQ_API_KEY"])
         model = st.secrets.get("GROQ_MODEL", "llama3-8b-8192")
-
         completion = groq_client.chat.completions.create(
             model=model,
             messages=[
@@ -119,14 +105,12 @@ Please return the best 5 restaurants from this list in the requested JSON format
             response_format={"type": "json_object"},
             temperature=0.6,
         )
-
         llm_response = completion.choices[0].message.content
         llm_json = json.loads(llm_response)
         return llm_json.get("restaurants", [])
 
     except Exception as e:
         st.toast(f"⚠️ AI ranking unavailable, showing top results. ({e})", icon="⚠️")
-        # Fallback: return top 5 raw results
         fallback = []
         for r in results[:5]:
             fallback.append({
@@ -172,41 +156,31 @@ h1, h2, h3, h4, h5, h6 {
     font-family: 'Outfit', sans-serif !important;
 }
 
-/* ── Hide Streamlit Footer ── */
-footer {display: none !important;}
-
-/* Kill deploy button, GitHub icon, and fork buttons ONLY */
+/* ── Hide Streamlit chrome ── */
+footer { display: none !important; }
 .stDeployButton,
 [data-testid="stDeployButton"],
 [data-testid="stGitHubIcon"],
 [data-testid="manage-app-button"],
 [data-testid="stAppViewerStatus"],
-[data-testid="stToolbar"] {
+[data-testid="stToolbar"],
+[data-testid="stSidebar"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"] {
     display: none !important;
     visibility: hidden !important;
 }
 
+/* ── Header: transparent ── */
 [data-testid="stHeader"] {
-    background: rgba(13, 11, 26, 0.6) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-bottom: 1px solid rgba(160, 32, 240, 0.15) !important;
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
 }
 [data-testid="stHeader"]::after { display: none !important; }
-
-/* ── Desktop: Force sidebar expanded and ideal size ── */
-@media (min-width: 769px) {
-    section[data-testid="stSidebar"] {
-        width: 380px !important;
-        min-width: 380px !important;
-        max-width: 380px !important;
-        transform: none !important;
-    }
-    section[data-testid="stSidebar"][aria-expanded="false"] {
-        margin-left: 0 !important;
-        transform: none !important;
-    }
-}
 
 /* ── App Background ── */
 .stApp {
@@ -218,9 +192,9 @@ footer {display: none !important;}
 
 /* ── Container ── */
 .block-container {
-    padding-top: 2rem !important;
-    padding-bottom: 2rem !important;
-    max-width: 900px !important;
+    padding-top: 1.5rem !important;
+    padding-bottom: 3rem !important;
+    max-width: 720px !important;
 }
 
 /* ── Scrollbar ── */
@@ -229,125 +203,11 @@ footer {display: none !important;}
 ::-webkit-scrollbar-thumb { background: rgba(160,32,240,0.3); border-radius: 3px; }
 
 /* ══════════════════════════════════════════════
-   SIDEBAR
-   ══════════════════════════════════════════════ */
-section[data-testid="stSidebar"] {
-    background: var(--bg-surface) !important;
-    border-right: 1px solid var(--border) !important;
-}
-
-section[data-testid="stSidebar"] > div:first-child {
-    padding: 2rem 1.5rem 1.5rem !important;
-}
-
-/* Sidebar labels */
-section[data-testid="stSidebar"] label {
-    color: var(--text-2) !important;
-    font-size: 0.82rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.2px !important;
-    text-transform: none !important;
-    margin-bottom: 2px !important;
-}
-
-/* Sidebar inputs */
-section[data-testid="stSidebar"] input,
-section[data-testid="stSidebar"] textarea,
-section[data-testid="stSidebar"] [data-baseweb="select"] > div {
-    background: rgba(22, 17, 44, 0.6) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 10px !important;
-    color: var(--text-1) !important;
-    font-size: 0.9rem !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
-}
-
-section[data-testid="stSidebar"] input:focus,
-section[data-testid="stSidebar"] textarea:focus {
-    border-color: var(--purple) !important;
-    box-shadow: 0 0 0 2px rgba(160,32,240,0.12) !important;
-    outline: none !important;
-}
-
-section[data-testid="stSidebar"] input::placeholder,
-section[data-testid="stSidebar"] textarea::placeholder {
-    color: var(--text-3) !important;
-    font-size: 0.85rem !important;
-}
-
-/* Hide Input Instructions (Press Enter to submit) */
-[data-testid="InputInstructions"],
-[data-testid="stInputInstructions"],
-[data-testid="stWidgetInstructions"],
-[data-testid="stFormSubmitInstructions"],
-.stTextInput small,
-.stTextArea small,
-div[class*="InputInstructions"] {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-}
-
-/* Force hide the suffix container inside baseweb inputs where Streamlit injects 'Press Enter...' */
-div[data-baseweb="input"] > div:not(:first-child),
-div[data-baseweb="textarea"] > div:not(:first-child) {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    width: 0 !important;
-    height: 0 !important;
-}
-
-/* Slider */
-section[data-testid="stSidebar"] [data-testid="stThumbValue"] {
-    color: var(--purple-neon) !important;
-    font-weight: 700 !important;
-    font-size: 0.8rem !important;
-}
-
-/* Sidebar reduce inner gaps */
-section[data-testid="stSidebar"] .stTextInput,
-section[data-testid="stSidebar"] .stSelectbox,
-section[data-testid="stSidebar"] .stSlider,
-section[data-testid="stSidebar"] .stTextArea {
-    margin-bottom: -4px !important;
-}
-
-/* ── Sidebar Submit Button ── */
-section[data-testid="stSidebar"] button,
-button[kind="primaryFormSubmit"] {
-    background: linear-gradient(135deg, var(--violet), var(--purple), var(--purple-bright)) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 12px !important;
-    font-weight: 700 !important;
-    font-size: 0.95rem !important;
-    padding: 0.7rem 1.2rem !important;
-    width: 100% !important;
-    letter-spacing: 0.3px !important;
-    box-shadow: 0 4px 18px rgba(112,0,255,0.35) !important;
-    transition: all 0.25s ease !important;
-    margin-top: 8px !important;
-}
-
-section[data-testid="stSidebar"] button:hover,
-button[kind="primaryFormSubmit"]:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 24px rgba(112,0,255,0.5) !important;
-}
-
-/* ── Sidebar divider ── */
-section[data-testid="stSidebar"] hr {
-    border-color: var(--border) !important;
-    margin: 1.2rem 0 !important;
-}
-
-/* ══════════════════════════════════════════════
    HERO SECTION
    ══════════════════════════════════════════════ */
 .hero {
     text-align: center;
-    padding: 40px 20px 30px;
+    padding: 32px 20px 24px;
     position: relative;
 }
 
@@ -376,11 +236,11 @@ section[data-testid="stSidebar"] hr {
     background: linear-gradient(135deg, var(--purple), var(--violet), var(--purple-bright));
     box-shadow: 0 0 35px rgba(160,32,240,0.25);
     animation: logoBreathe 3s ease-in-out infinite alternate;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
 }
 .hero-logo img {
     display: block;
-    width: 120px; height: 120px;
+    width: 100px; height: 100px;
     border-radius: 19px;
     object-fit: cover;
 }
@@ -411,110 +271,132 @@ section[data-testid="stSidebar"] hr {
 .hero-line {
     width: 60px; height: 2px;
     background: linear-gradient(90deg, transparent, var(--purple), transparent);
-    margin: 22px auto 0;
+    margin: 18px auto 0;
     border-radius: 1px;
 }
 
 /* ══════════════════════════════════════════════
-   EMPTY STATE — The Page Load View
+   FORM CARD
    ══════════════════════════════════════════════ */
-.welcome {
-    text-align: center;
-    padding: 80px 40px 90px;
-    margin-top: 10px;
-    background: linear-gradient(160deg, rgba(22,17,44,0.5) 0%, rgba(13,11,26,0.6) 100%);
-    border: 1px solid var(--border);
-    border-radius: 24px;
-    position: relative;
-    overflow: hidden;
+[data-testid="stForm"] {
+    background: rgba(22, 17, 44, 0.65) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 24px !important;
+    padding: 32px !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(160,32,240,0.08) !important;
 }
 
-.welcome::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse 60% 40% at 50% 20%, rgba(160,32,240,0.07) 0%, transparent 70%);
-    pointer-events: none;
+/* Form labels */
+label, .stTextInput label, .stSelectbox label, .stSlider label, .stTextArea label {
+    color: var(--text-2) !important;
+    font-size: 0.82rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.2px !important;
+    margin-bottom: 2px !important;
 }
 
-.welcome-emoji {
-    font-size: 4.5rem;
-    display: block;
-    margin-bottom: 24px;
-    animation: float 3.5s ease-in-out infinite;
-    position: relative;
-    z-index: 1;
-}
-@keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-14px); }
+/* Form inputs */
+input, textarea,
+[data-baseweb="select"] > div {
+    background: rgba(13, 11, 26, 0.7) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 10px !important;
+    color: var(--text-1) !important;
+    font-size: 0.9rem !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
-.welcome h2 {
-    font-size: 1.8rem;
-    font-weight: 800;
-    color: var(--text-1);
-    margin: 0 0 12px;
-    letter-spacing: -0.5px;
-    position: relative; z-index: 1;
+input:focus, textarea:focus {
+    border-color: var(--purple) !important;
+    box-shadow: 0 0 0 3px rgba(160,32,240,0.12) !important;
+    outline: none !important;
 }
 
-.welcome p {
-    color: var(--text-3);
-    font-size: 1rem;
-    line-height: 1.7;
-    max-width: 400px;
-    margin: 0 auto;
-    position: relative; z-index: 1;
+input::placeholder, textarea::placeholder {
+    color: var(--text-3) !important;
+    font-size: 0.85rem !important;
 }
 
-.welcome-features {
+/* Slider thumb value */
+[data-testid="stThumbValue"] {
+    color: var(--purple-neon) !important;
+    font-weight: 700 !important;
+    font-size: 0.8rem !important;
+}
+
+/* Reduce spacing between form fields */
+.stTextInput, .stSelectbox, .stSlider, .stTextArea {
+    margin-bottom: -4px !important;
+}
+
+/* Hide "Press Enter to submit" text */
+[data-testid="InputInstructions"],
+[data-testid="stInputInstructions"],
+div[class*="InputInstructions"],
+div[data-baseweb="input"] > div:not(:first-child),
+div[data-baseweb="textarea"] > div:not(:first-child) {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
+/* ── Form Submit Button ── */
+button[kind="primaryFormSubmit"],
+[data-testid="stFormSubmitButton"] button {
+    background: linear-gradient(135deg, var(--violet), var(--purple), var(--purple-bright)) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    padding: 0.75rem 1.5rem !important;
+    width: 100% !important;
+    letter-spacing: 0.3px !important;
+    box-shadow: 0 4px 20px rgba(112,0,255,0.4) !important;
+    transition: all 0.25s ease !important;
+    margin-top: 12px !important;
+}
+
+button[kind="primaryFormSubmit"]:hover,
+[data-testid="stFormSubmitButton"] button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 28px rgba(112,0,255,0.55) !important;
+}
+
+/* ── Refine Search Button ── */
+.refine-row {
     display: flex;
-    justify-content: center;
-    gap: 32px;
-    margin-top: 40px;
-    position: relative; z-index: 1;
-}
-
-.welcome-feat {
-    text-align: center;
-}
-
-.welcome-feat-icon {
-    width: 48px; height: 48px;
-    border-radius: 14px;
-    background: rgba(160,32,240,0.1);
-    border: 1px solid var(--border);
-    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    font-size: 1.3rem;
-    margin-bottom: 10px;
+    gap: 14px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
 }
-
-.welcome-feat-text {
-    color: var(--text-2);
-    font-size: 0.8rem;
-    font-weight: 500;
-}
-
-/* ══════════════════════════════════════════════
-   RESULTS HEADER
-   ══════════════════════════════════════════════ */
-.results-hdr {
-    margin-bottom: 24px;
-}
-.results-hdr h2 {
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: var(--text-1);
-    margin: 0 0 4px;
-    letter-spacing: -0.3px;
-}
-.results-hdr p {
+.refine-summary {
+    font-size: 0.82rem;
     color: var(--text-3);
-    font-size: 0.88rem;
-    margin: 0;
+    flex: 1;
+}
+.refine-summary b { color: var(--purple-neon); font-weight: 600; }
+
+/* Style "Refine" button — targets regular st.button */
+button[kind="secondary"] {
+    background: rgba(160,32,240,0.08) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 20px !important;
+    color: var(--purple-neon) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    padding: 6px 18px !important;
+    transition: all 0.2s ease !important;
+}
+button[kind="secondary"]:hover {
+    background: rgba(160,32,240,0.18) !important;
+    border-color: var(--border-hover) !important;
+    transform: none !important;
 }
 
 /* ══════════════════════════════════════════════
@@ -554,7 +436,6 @@ section[data-testid="stSidebar"] hr {
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Card Top Row */
 .r-top {
     display: flex;
     align-items: center;
@@ -601,7 +482,6 @@ section[data-testid="stSidebar"] hr {
     font-weight: 600;
 }
 
-/* Tags Row */
 .r-tags {
     display: flex;
     flex-wrap: wrap;
@@ -619,7 +499,6 @@ section[data-testid="stSidebar"] hr {
     font-weight: 500;
 }
 
-/* AI Insight */
 .r-ai {
     background: rgba(112,0,255,0.05);
     border: 1px solid var(--border);
@@ -656,6 +535,25 @@ section[data-testid="stSidebar"] hr {
     color: var(--text-2);
     font-size: 0.9rem;
     line-height: 1.65;
+}
+
+/* ══════════════════════════════════════════════
+   RESULTS HEADER
+   ══════════════════════════════════════════════ */
+.results-hdr {
+    margin-bottom: 24px;
+}
+.results-hdr h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text-1);
+    margin: 0 0 4px;
+    letter-spacing: -0.3px;
+}
+.results-hdr p {
+    color: var(--text-3);
+    font-size: 0.88rem;
+    margin: 0;
 }
 
 /* ══════════════════════════════════════════════
@@ -701,76 +599,30 @@ div[data-testid="stAlert"] {
 img { border-radius: 20px !important; box-shadow: none !important; }
 
 /* ── Responsive ── */
-@media (max-width: 768px) {
+@media (max-width: 600px) {
     .hero h1 { font-size: 2rem; }
     .r-card { padding: 18px 20px; }
     .r-name { font-size: 1.1rem; }
-    .welcome { padding: 50px 24px 60px; }
-    .welcome-features { flex-direction: column; align-items: center; gap: 20px; }
+    [data-testid="stForm"] { padding: 20px !important; }
 }
 
-/* ── Hide native Streamlit sidebar toggle completely — our JS FAB handles it ── */
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="stExpandSidebarButton"],
-[data-testid="stSidebarCollapseButton"] {
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-}
-
-/* ── Custom FAB ── */
-#district-fab {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 999999;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: linear-gradient(135deg, #7000FF, #A020F0, #B44FFF);
-    color: white;
-    border: none;
-    border-radius: 30px;
-    padding: 14px 22px;
-    font-family: 'Outfit', sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    cursor: pointer;
-    box-shadow: 0 6px 28px rgba(112,0,255,0.55), 0 2px 8px rgba(0,0,0,0.4);
-    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
-    -webkit-tap-highlight-color: transparent;
-    user-select: none;
-}
-#district-fab:hover {
-    transform: translateX(-50%) translateY(-3px) scale(1.04);
-    box-shadow: 0 10px 36px rgba(112,0,255,0.7);
-}
-#district-fab:active {
-    transform: translateX(-50%) scale(0.96);
-}
-#district-fab-icon {
-    font-size: 1.2rem;
-    line-height: 1;
-}
-#district-fab-label {
-    line-height: 1;
-}
-
-/* Mobile Sidebar — glass overlay style */
-@media (max-width: 768px) {
-    section[data-testid="stSidebar"] {
-        background: rgba(10, 8, 22, 0.97) !important;
-        backdrop-filter: blur(28px) !important;
-        -webkit-backdrop-filter: blur(28px) !important;
-        border-right: 1px solid rgba(160, 32, 240, 0.35) !important;
-        box-shadow: 6px 0 50px rgba(0,0,0,0.8) !important;
-    }
+/* Column gap tightening for form layout */
+[data-testid="stHorizontalBlock"] {
+    gap: 12px !important;
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+# SESSION STATE INIT
+# ══════════════════════════════════════════════
+if 'page' not in st.session_state:
+    st.session_state.page = 'form'
+if 'restaurants' not in st.session_state:
+    st.session_state.restaurants = []
+if 'search_params' not in st.session_state:
+    st.session_state.search_params = {}
 
 
 # ══════════════════════════════════════════════
@@ -781,153 +633,9 @@ with st.spinner("Loading restaurant database..."):
 
 
 # ══════════════════════════════════════════════
-# SIDEBAR — Preference Form
-# ══════════════════════════════════════════════
-logo_path = os.path.join(os.path.dirname(__file__), "logo.jpeg")
-
-with st.sidebar:
-    if os.path.exists(logo_path):
-        st.image(logo_path, width=60)
-    st.markdown(
-        '<p style="font-family:Outfit,sans-serif; font-size:1.15rem; font-weight:700; '
-        'color:#F0EAFF; margin:4px 0 2px;">Your Preferences</p>'
-        '<p style="color:#6B5F8A; font-size:0.82rem; margin:0 0 18px; line-height:1.5;">'
-        'Tell us what you\'re craving.</p>',
-        unsafe_allow_html=True
-    )
-
-    with st.form("preferences_form"):
-        location = st.text_input("Location", placeholder="e.g. Indiranagar, Koramangala")
-        cuisine = st.text_input("Cuisine", placeholder="e.g. North Indian, Italian")
-        budget = st.selectbox("Budget", ["low", "medium", "high"], index=1)
-        min_rating = st.slider("Minimum Rating", min_value=1.0, max_value=5.0, value=3.5, step=0.1)
-        preferences = st.text_area(
-            "Vibe & Preferences",
-            placeholder="e.g. romantic rooftop, craft cocktails, live music...",
-            height=90
-        )
-        submitted = st.form_submit_button("✨  Curate My Experience")
-
-    st.markdown("---")
-    st.markdown(
-        '<p style="text-align:center; color:#6B5F8A; font-size:0.72rem;">'
-        'Powered by <b style="color:#A020F0;">District AI</b> × Groq</p>',
-        unsafe_allow_html=True
-    )
-
-# Inject JS via components.html so we can use window.parent to escape the iframe
-# and manipulate the REAL page DOM — st.markdown strips <script>, st.html is sandboxed
-components.html("""
-<script>
-(function() {
-  var p = window.parent;  // The real Streamlit page
-  var pd = p.document;
-
-  /* ── 1. Inject FAB CSS into parent <head> ── */
-  if (!pd.getElementById('district-fab-style')) {
-    var style = pd.createElement('style');
-    style.id = 'district-fab-style';
-    style.textContent = `
-      #district-fab {
-        position: fixed;
-        bottom: 28px;
-        right: 24px;
-        z-index: 2147483647;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: linear-gradient(135deg, #7000FF, #A020F0, #B44FFF);
-        color: white;
-        border: none;
-        border-radius: 30px;
-        padding: 14px 22px;
-        font-family: 'Outfit', 'Inter', sans-serif;
-        font-size: 1rem;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        cursor: pointer;
-        box-shadow: 0 6px 28px rgba(112,0,255,0.55), 0 2px 8px rgba(0,0,0,0.4);
-        transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
-        -webkit-tap-highlight-color: transparent;
-        user-select: none;
-      }
-      #district-fab:hover {
-        transform: translateY(-3px) scale(1.04);
-        box-shadow: 0 10px 36px rgba(112,0,255,0.7);
-      }
-      #district-fab:active { transform: scale(0.96); }
-    `;
-    pd.head.appendChild(style);
-  }
-
-  /* ── 2. Create & inject FAB into parent body ── */
-  function injectFAB() {
-    if (pd.getElementById('district-fab')) return;
-
-    var fab = pd.createElement('button');
-    fab.id = 'district-fab';
-    fab.setAttribute('aria-label', 'Open filters');
-    fab.innerHTML = '&#9776;&nbsp;&nbsp;Filters';
-
-    fab.addEventListener('click', function() {
-      // All selectors Streamlit has used for the sidebar toggle across versions
-      var selectors = [
-        '[data-testid="collapsedControl"] button',
-        '[data-testid="stSidebarCollapsedControl"] button',
-        '[data-testid="stExpandSidebarButton"]',
-        '[data-testid="stSidebarCollapseButton"]',
-        '[data-testid="collapsedControl"]',
-        'button[aria-label="Open sidebar"]',
-        'button[aria-label="open sidebar"]',
-        'button[title="Open sidebar"]',
-        '[data-testid="stHeader"] button',
-      ];
-      for (var i = 0; i < selectors.length; i++) {
-        var btn = pd.querySelector(selectors[i]);
-        if (btn) {
-          var prev = btn.style.cssText;
-          btn.style.cssText = prev + ';display:block!important;visibility:visible!important;pointer-events:auto!important';
-          btn.click();
-          btn.style.cssText = prev;
-          return;
-        }
-      }
-      // Last resort: toggle aria-expanded
-      var sidebar = pd.querySelector('[data-testid="stSidebar"]');
-      if (sidebar) {
-        var exp = sidebar.getAttribute('aria-expanded');
-        sidebar.setAttribute('aria-expanded', exp === 'true' ? 'false' : 'true');
-      }
-    });
-
-    pd.body.appendChild(fab);
-  }
-
-  // Inject now and re-inject if Streamlit re-runs wipe the DOM
-  injectFAB();
-  new MutationObserver(function() {
-    if (!pd.getElementById('district-fab')) injectFAB();
-  }).observe(pd.body, { childList: true });
-
-  /* ── 3. Hide "Press Enter" hints in parent ── */
-  function hideHints() {
-    pd.querySelectorAll('div,small,span,p').forEach(function(el) {
-      if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
-        el.style.display = 'none';
-      }
-    });
-  }
-  hideHints();
-  new MutationObserver(hideHints).observe(pd.body, { childList: true, subtree: true });
-
-})();
-</script>
-""", height=0)
-
-
-# ══════════════════════════════════════════════
 # HERO
 # ══════════════════════════════════════════════
+logo_path = os.path.join(os.path.dirname(__file__), "logo.jpeg")
 hero_img = ""
 if os.path.exists(logo_path):
     with open(logo_path, "rb") as f:
@@ -947,149 +655,133 @@ st.markdown(f"""
 
 
 # ══════════════════════════════════════════════
-# MAIN CONTENT
+# PAGE: FORM
 # ══════════════════════════════════════════════
-if submitted:
-    # Auto-collapse sidebar after submit so results are visible
-    components.html("""
-<script>
-(function() {
-  var pd = window.parent.document;
+if st.session_state.page == 'form':
+    with st.form("preferences_form", clear_on_submit=False):
+        st.markdown(
+            '<p style="font-family:Outfit,sans-serif; font-size:1.15rem; font-weight:700; '
+            'color:#F0EAFF; margin:0 0 4px;">Your Preferences</p>'
+            '<p style="color:#6B5F8A; font-size:0.82rem; margin:0 0 18px; line-height:1.5;">'
+            'Tell us what you\'re craving.</p>',
+            unsafe_allow_html=True
+        )
 
-  // Selectors for Streamlit's sidebar collapse/close button
-  var closeSelectors = [
-    '[data-testid="stSidebarCollapseButton"]',
-    'button[aria-label="Close sidebar"]',
-    'button[aria-label="close sidebar"]',
-    'button[aria-label="Collapse sidebar"]',
-    'button[aria-label="collapse sidebar"]',
-    '[data-testid="stSidebar"] button',
-  ];
+        col1, col2 = st.columns(2)
+        with col1:
+            location = st.text_input("📍 Location", placeholder="e.g. Indiranagar")
+        with col2:
+            cuisine = st.text_input("🥘 Cuisine", placeholder="e.g. North Indian")
 
-  // Retry every 100ms for up to 3 seconds (handles Streamlit re-render timing)
-  var attempts = 0;
-  var maxAttempts = 30;
+        col3, col4 = st.columns(2)
+        with col3:
+            budget = st.selectbox("💸 Budget", ["low", "medium", "high"], index=1)
+        with col4:
+            min_rating = st.slider("⭐ Min Rating", min_value=1.0, max_value=5.0, value=3.5, step=0.1)
 
-  function tryCollapse() {
-    // Check sidebar is actually open
-    var sidebar = pd.querySelector('[data-testid="stSidebar"]');
-    var isOpen = sidebar && (
-      sidebar.getAttribute('aria-expanded') === 'true' ||
-      !sidebar.style.transform ||
-      sidebar.style.transform === 'none'
-    );
+        preferences = st.text_area(
+            "✨ Vibe & Preferences",
+            placeholder="e.g. romantic rooftop, craft cocktails, live music...",
+            height=90
+        )
 
-    for (var i = 0; i < closeSelectors.length; i++) {
-      var btn = pd.querySelector(closeSelectors[i]);
-      if (btn) {
-        var prev = btn.style.cssText;
-        btn.style.cssText = prev + ';display:block!important;visibility:visible!important;pointer-events:auto!important;opacity:1!important';
-        btn.click();
-        btn.style.cssText = prev;
-        return; // success
-      }
-    }
+        submitted = st.form_submit_button("✨  Curate My Experience", use_container_width=True)
 
-    // Button not found yet — retry
-    attempts++;
-    if (attempts < maxAttempts) {
-      setTimeout(tryCollapse, 100);
-    }
-  }
+    if submitted:
+        if not location or not cuisine or not preferences:
+            st.warning("Please fill out Location, Cuisine, and Vibe & Preferences to begin your search.")
+        else:
+            with st.spinner("Our AI concierge is curating the perfect spots for you..."):
+                restaurants = get_recommendations(df, location, budget, cuisine, min_rating, preferences)
+            # Store everything in session state and switch pages
+            st.session_state.restaurants = restaurants
+            st.session_state.search_params = {
+                'location': location,
+                'cuisine': cuisine,
+                'budget': budget,
+                'min_rating': min_rating,
+                'preferences': preferences,
+            }
+            st.session_state.page = 'results'
+            st.rerun()
 
-  // Small initial delay to let Streamlit finish rendering
-  setTimeout(tryCollapse, 300);
-})();
-</script>
-""", height=0)
 
-    if not location or not cuisine or not preferences:
-        st.warning("Please fill out all the mandatory fields (Location, Cuisine, Vibe & Preferences) to begin your search.")
-    else:
-        with st.spinner("Our AI concierge is curating the perfect spots for you..."):
-            restaurants = get_recommendations(df, location, budget, cuisine, min_rating, preferences)
+# ══════════════════════════════════════════════
+# PAGE: RESULTS
+# ══════════════════════════════════════════════
+elif st.session_state.page == 'results':
+    params = st.session_state.search_params
+    restaurants = st.session_state.restaurants
 
-            if not restaurants:
-                st.markdown("""
-                <div class="no-match">
-                    <div style="font-size:2.5rem;">😕</div>
-                    <h3>No Matches Found</h3>
-                    <p>We couldn't find spots matching your exact vibe.<br>
-                    Try broadening your location, budget, or lowering the rating.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown(f"""
-                <div class="results-hdr">
-                    <h2>✨ Top {len(restaurants)} Curated Picks</h2>
-                    <p>Hand-picked by our AI concierge based on your preferences</p>
-                </div>
-                """, unsafe_allow_html=True)
+    # ── Refine / back row ──
+    col_back, col_summary = st.columns([1, 3])
+    with col_back:
+        if st.button("← Refine", key="refine_btn", type="secondary"):
+            st.session_state.page = 'form'
+            st.rerun()
+    with col_summary:
+        st.markdown(
+            f'<p class="refine-summary">'
+            f'<b>{params.get("location","")}</b> · '
+            f'<b>{params.get("cuisine","")}</b> · '
+            f'<b>{params.get("budget","")}</b> budget · '
+            f'<b>≥{params.get("min_rating","")}</b>★'
+            f'</p>',
+            unsafe_allow_html=True
+        )
 
-                for i, r in enumerate(restaurants):
-                    name = r.get("Name") or r.get("name", "Unknown")
-                    cuis = r.get("Cuisine") or r.get("cuisine", "N/A")
-                    rating = r.get("Rating") or r.get("rating", "N/A")
-                    cost = r.get("Cost") or r.get("cost", "N/A")
-                    explanation = r.get("AI_Explanation") or "Highly rated based on your constraints."
-
-                    try:
-                        rn = float(rating)
-                        stars = "★" * int(rn) + ("½" if rn - int(rn) >= 0.5 else "")
-                    except (ValueError, TypeError):
-                        stars = "★★★"
-
-                    cuis_display = cuis.title() if isinstance(cuis, str) else cuis
-
-                    st.markdown(f"""
-                    <div class="r-card" style="animation-delay:{i*0.08}s;">
-                        <div class="r-top">
-                            <div class="r-rank">{i+1}</div>
-                            <div class="r-info">
-                                <p class="r-name">{name}</p>
-                                <span class="r-stars">{stars} {rating}</span>
-                            </div>
-                        </div>
-                        <div class="r-tags">
-                            <span class="r-tag">🥘 {cuis_display}</span>
-                            <span class="r-tag">💸 ₹{cost} for two</span>
-                        </div>
-                        <div class="r-ai">
-                            <div class="r-ai-label"><span class="r-ai-dot"></span> AI Concierge Insight</div>
-                            <div class="r-ai-text">{explanation}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-else:
-    # ── Welcome / Empty State ──
-    st.markdown("""
-    <div class="welcome">
-        <span class="welcome-emoji">🍽️</span>
-        <h2>Ready to discover your next meal?</h2>
-        <p>Set your preferences in the sidebar and let our AI concierge curate the perfect dining experience — tailored just for you.</p>
-        <div class="welcome-features">
-            <div class="welcome-feat">
-                <div class="welcome-feat-icon">📍</div>
-                <div class="welcome-feat-text">Any Location</div>
-            </div>
-            <div class="welcome-feat">
-                <div class="welcome-feat-icon">🤖</div>
-                <div class="welcome-feat-text">AI Ranked</div>
-            </div>
-            <div class="welcome-feat">
-                <div class="welcome-feat-icon">⭐</div>
-                <div class="welcome-feat-text">Top Rated</div>
-            </div>
-            <div class="welcome-feat">
-                <div class="welcome-feat-icon">💜</div>
-                <div class="welcome-feat-text">Curated Vibes</div>
-            </div>
+    if not restaurants:
+        st.markdown("""
+        <div class="no-match">
+            <div style="font-size:2.5rem;">😕</div>
+            <h3>No Matches Found</h3>
+            <p>We couldn't find spots matching your exact vibe.<br>
+            Try broadening your location, budget, or lowering the rating.</p>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div class="results-hdr">
+            <h2>✨ Top {len(restaurants)} Curated Picks</h2>
+            <p>Hand-picked by our AI concierge based on your preferences</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-# Footer
-st.markdown("""
-<div class="ft">Made with 💜 by <b>District</b> — AI-Curated Dining Experiences</div>
-""", unsafe_allow_html=True)
+        for i, r in enumerate(restaurants):
+            name = r.get("Name") or r.get("name", "Unknown")
+            cuis = r.get("Cuisine") or r.get("cuisine", "N/A")
+            rating = r.get("Rating") or r.get("rating", "N/A")
+            cost = r.get("Cost") or r.get("cost", "N/A")
+            explanation = r.get("AI_Explanation") or "Highly rated based on your constraints."
+
+            try:
+                rn = float(rating)
+                stars = "★" * int(rn) + ("½" if rn - int(rn) >= 0.5 else "")
+            except (ValueError, TypeError):
+                stars = "★★★"
+
+            cuis_display = cuis.title() if isinstance(cuis, str) else cuis
+
+            st.markdown(f"""
+            <div class="r-card" style="animation-delay:{i*0.08}s;">
+                <div class="r-top">
+                    <div class="r-rank">{i+1}</div>
+                    <div class="r-info">
+                        <p class="r-name">{name}</p>
+                        <span class="r-stars">{stars} {rating}</span>
+                    </div>
+                </div>
+                <div class="r-tags">
+                    <span class="r-tag">🥘 {cuis_display}</span>
+                    <span class="r-tag">💸 ₹{cost} for two</span>
+                </div>
+                <div class="r-ai">
+                    <div class="r-ai-label"><span class="r-ai-dot"></span> AI Concierge Insight</div>
+                    <div class="r-ai-text">{explanation}</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="ft">Made with 💜 by <b>District</b> — AI-Curated Dining Experiences</div>
+    """, unsafe_allow_html=True)
