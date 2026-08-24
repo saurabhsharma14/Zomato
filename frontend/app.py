@@ -961,8 +961,7 @@ elif st.session_state.page == 'results':
                     <div class="r-rank">{i+1}</div>
                     <div class="r-info">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-                            <p class="r-name">{name}</p>
-                            {zomato_btn}
+                            <p class="r-name">{name}</p>{zomato_btn}
                         </div>
                         <span class="r-stars">{stars} {rating}</span>
                     </div>
@@ -974,8 +973,7 @@ elif st.session_state.page == 'results':
                         </span>
                     </a>
                     <span class="r-tag">🥘 {cuis_display}</span>
-                    <span class="r-tag">💸 ₹{cost} for two</span>
-                    {vibe_html}
+                    <span class="r-tag">💸 ₹{cost} for two</span>{vibe_html}
                 </div>
                 <div class="r-ai">
                     <div class="r-ai-label"><span class="r-ai-dot"></span> AI Concierge Insight</div>
