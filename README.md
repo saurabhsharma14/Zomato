@@ -22,10 +22,10 @@
 
 | Step | What happens |
 |------|-------------|
-| 🎛️ **You set your preferences** | Location, budget tier, cuisine, minimum rating, and any extra vibe notes |
-| 🔍 **Hard filter** | The engine queries the Zomato dataset and narrows it down to the top 15 candidates |
-| 🤖 **LLM ranking** | Groq (Llama 3) reads the candidates and your preferences, then ranks and explains the top 5 |
-| 🍽️ **Results** | A beautiful card-based UI displays each restaurant with its name, cuisine, rating, cost, and an AI-crafted explanation |
+| 🎛️ **You set your preferences** | Location, budget tier, cuisine, minimum rating, and any extra vibe notes (e.g., "Dimly lit and cozy for a date") |
+| 🔍 **Hard filter** | The engine queries the Zomato dataset and narrows it down to the top 20 candidates, extracting URL and raw Review data for context. |
+| 🤖 **LLM ranking & Vibe Match** | Groq (Llama 3) reads the candidates' reviews and your preferences, then ranks the top 5, mirroring your language/tone, and extracts a 2-3 word `Vibe_Match`. |
+| 🍽️ **Results** | A beautiful card-based UI displays each restaurant with its name, a direct **Zomato URL link**, rating, cost, interactive Google Maps chip, and an AI-crafted explanation. |
 
 ---
 
@@ -145,19 +145,21 @@ The app will be available at `http://localhost:8501`.
 
 The recommendation engine uses a **two-stage retrieval + ranking** pattern:
 
-1. **Hard filtering (deterministic)** — Pandas filters the ~7,000-row Zomato dataset by location, budget tier, cuisine, and minimum rating, returning up to 15 candidates.
-
-2. **LLM ranking (generative)** — The candidates are serialized as JSON and injected into a structured prompt. Groq's Llama 3 then acts as an *expert food critic and personalized concierge*, returning a ranked JSON array of the top 5 restaurants, each with a persuasive, personalized explanation.
+1. **Hard filtering (deterministic)** — Pandas filters the Zomato dataset by location, budget tier, cuisine, and minimum rating, returning up to 20 candidates.
+2. **LLM ranking (generative)** — The candidates (including up to 300 characters of user reviews and liked dishes) are serialized as JSON and injected into a structured prompt. Groq's Llama 3 then acts as an *expert food critic and personalized concierge*, returning a ranked JSON array of the top 5 restaurants, each with a persuasive, personalized explanation and a concise `Vibe_Match`.
 
 ```
 System: "You are an expert AI restaurant concierge..."
 User:   "Location: Delhi | Budget: High | Cuisine: Italian
-         Candidates: [ {name, cuisine, rating, cost, reviews}, ... ]"
+         Candidates: [ {name, cuisine, rating, cost, reviews, url, dish_liked}, ... ]"
 
-→ Response: { "restaurants": [ {Name, Cuisine, Rating, Cost, AI_Explanation}, ... ] }
+→ Response: { "restaurants": [ {Name, Cuisine, Rating, Cost, Vibe_Match, AI_Explanation}, ... ] }
 ```
 
-Structured output (`response_format: json_object`) is enforced to guarantee reliable JSON parsing. A graceful fallback returns the top-rated candidates if the LLM call fails.
+### 🛡️ Enterprise-Grade Robustness
+- **Prompt Injection Defense:** The system prompt explicitly guards against malicious user inputs (e.g., "ignore all previous instructions").
+- **Graceful Fallbacks:** If the API rate limits or hallucinates an invalid JSON response, the system automatically retries. If 0 results are returned from the hard filter, it seamlessly falls back to the top-rated spots overall.
+- **Tone Mirroring:** The AI automatically detects the user's language (e.g., Hindi, Hinglish, formal English, slang) and mirrors it in the `AI_Explanation`.
 
 ---
 
