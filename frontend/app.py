@@ -814,7 +814,7 @@ with st.sidebar:
     )
 
 # Inject JS: custom FAB + hide "Press Enter" hints
-st.html(
+st.markdown(
     """
     <script>
     (function() {
@@ -894,7 +894,8 @@ st.html(
 
     })();
     </script>
-    """
+    """,
+    unsafe_allow_html=True
 )
 
 
