@@ -116,6 +116,11 @@ CRITICAL RULES:
 2. If there are fewer than 5 candidates provided, return all of them.
 3. You must output ONLY a valid JSON object. Do not include conversational text, markdown formatting, or preamble before or after the JSON.
 4. If the user's prompt mentions specific food or a vibe, prioritize candidates that match it best.
+5. LANGUAGE & TONE MIRRORING — this is critical: detect the language and tone of the user's request and write the AI_Explanation in the exact same language and tone.
+   - If the user writes in Hindi or Hinglish (e.g. "girlfriend ke saath pizza khaana hai"), respond in the same casual Hinglish style — warm, fun, desi energy.
+   - If they write in formal English, be polished and sophisticated.
+   - If they write in casual English slang, match that vibe.
+   - The explanation must feel like it was written by someone who speaks the same language as the user, not a translated response.
 
 JSON SCHEMA:
 Return a JSON object with a single key 'restaurants' mapping to a list of objects. Each object must have:
@@ -123,7 +128,7 @@ Return a JSON object with a single key 'restaurants' mapping to a list of object
 - 'Cuisine': String, the cuisine it serves.
 - 'Rating': Number, the rating.
 - 'Cost': String or Number, the cost.
-- 'AI_Explanation': String, a highly engaging, personalized 1-2 sentence explanation of why this specific restaurant perfectly matches the user's request. Be persuasive and sound like a local foodie!
+- 'AI_Explanation': String, a highly engaging, personalized 1-2 sentence explanation in the SAME LANGUAGE AND TONE as the user's request. Sound like a local who truly gets them!
 """
 
     candidates_for_llm = []
