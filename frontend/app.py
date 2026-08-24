@@ -4,6 +4,7 @@ import json
 import os
 import base64
 from groq import Groq
+import urllib.parse
 
 # ── Page Config ──────────────────────────────
 st.set_page_config(
@@ -138,6 +139,7 @@ JSON SCHEMA:
 Return a JSON object with a single key 'restaurants' mapping to a list of objects. Each object must have:
 - 'Name': String, the exact name of the restaurant from the list.
 - 'Cuisine': String, the cuisine it serves.
+- 'Location': String, the location/area of the restaurant.
 - 'Rating': Number, the rating.
 - 'Cost': String or Number, the cost.
 - 'AI_Explanation': String, a highly engaging, personalized 1-2 sentence explanation in the SAME LANGUAGE AND TONE as the user's request. Sound like a local who truly gets them!
@@ -208,6 +210,7 @@ Please return the best 5 restaurants from this list in the requested JSON format
                 fallback.append({
                     "Name": r.get("name", "Unknown"),
                     "Cuisine": r.get("cuisine", "N/A"),
+                    "Location": r.get("location", "Unknown"),
                     "Rating": r.get("rating", "N/A"),
                     "Cost": r.get("cost", "N/A"),
                     "AI_Explanation": "Highly rated based on your constraints."
@@ -894,6 +897,7 @@ elif st.session_state.page == 'results':
         for i, r in enumerate(restaurants):
             name = r.get("Name") or r.get("name", "Unknown")
             cuis = r.get("Cuisine") or r.get("cuisine", "N/A")
+            loc = r.get("Location") or r.get("location", "Unknown")
             rating = r.get("Rating") or r.get("rating", "N/A")
             cost = r.get("Cost") or r.get("cost", "N/A")
             explanation = r.get("AI_Explanation") or "Highly rated based on your constraints."
@@ -905,6 +909,9 @@ elif st.session_state.page == 'results':
                 stars = "★★★"
 
             cuis_display = cuis.title() if isinstance(cuis, str) else cuis
+            loc_display = loc.title() if isinstance(loc, str) else loc
+            
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={urllib.parse.quote(f'{name} {loc} Bangalore')}"
 
             st.markdown(f"""
             <div class="r-card" style="animation-delay:{i*0.08}s;">
@@ -916,6 +923,11 @@ elif st.session_state.page == 'results':
                     </div>
                 </div>
                 <div class="r-tags">
+                    <a href="{maps_url}" target="_blank" style="text-decoration:none; color:inherit;">
+                        <span class="r-tag" style="cursor:pointer; background:rgba(160,32,240,0.15); border-color:rgba(160,32,240,0.4); transition:all 0.2s;">
+                            📍 {loc_display}
+                        </span>
+                    </a>
                     <span class="r-tag">🥘 {cuis_display}</span>
                     <span class="r-tag">💸 ₹{cost} for two</span>
                 </div>
