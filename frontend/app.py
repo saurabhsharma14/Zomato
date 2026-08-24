@@ -176,10 +176,9 @@ h1, h2, h3, h4, h5, h6 {
 #MainMenu {visibility: hidden !important;}
 footer {display: none !important;}
 
-/* Kill deploy button — every known selector */
+/* Kill deploy button & toolbar — every known selector */
 .stDeployButton,
 [data-testid="stDeployButton"],
-button[kind="header"],
 [data-testid="stHeader"] [data-testid="stToolbar"],
 [data-testid="stToolbar"] {
     display: none !important;
