@@ -1,0 +1,10 @@
+venv/
+.env
+__pycache__/
+*.pyc
+data/restaurants.db
+data/restaurants.csv
+.DS_Store
+*.log
+.streamlit/secrets.toml
+frontend/.streamlit/secrets.toml
