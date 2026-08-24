@@ -723,7 +723,8 @@ img { border-radius: 20px !important; box-shadow: none !important; }
 #district-fab {
     position: fixed;
     bottom: 28px;
-    right: 24px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 999999;
     display: flex;
     align-items: center;
@@ -744,11 +745,11 @@ img { border-radius: 20px !important; box-shadow: none !important; }
     user-select: none;
 }
 #district-fab:hover {
-    transform: translateY(-3px) scale(1.04);
+    transform: translateX(-50%) translateY(-3px) scale(1.04);
     box-shadow: 0 10px 36px rgba(112,0,255,0.7);
 }
 #district-fab:active {
-    transform: scale(0.96);
+    transform: translateX(-50%) scale(0.96);
 }
 #district-fab-icon {
     font-size: 1.2rem;
