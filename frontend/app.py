@@ -47,19 +47,57 @@ def get_unique_cuisines(df):
     return sorted(all_cuisines)
 
 
-def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
+def extract_intent_from_text(text, all_locations, all_cuisines):
+    """Parse a free-text query to extract location and cuisine hints."""
+    text_lower = text.lower()
+    found_location = ""
+    found_cuisine = ""
+
+    # Check for location keywords in the text (longest match first to avoid false positives)
+    for loc in sorted(all_locations, key=len, reverse=True):
+        if loc.lower() in text_lower:
+            found_location = loc
+            break
+
+    # Check for cuisine keywords in the text
+    for cui in sorted(all_cuisines, key=len, reverse=True):
+        if cui.lower() in text_lower:
+            found_cuisine = cui
+            break
+
+    return found_location, found_cuisine
+
+
+def get_recommendations(df, location, budget, cuisine, min_rating, preferences, all_locations, all_cuisines):
     """Filter restaurants and call Groq LLM to rank + explain them."""
     filtered = df.copy()
 
-    if location:
-        filtered = filtered[filtered['location'].str.contains(location.lower(), na=False, case=False)]
+    # Auto-extract location/cuisine from free-text prompt when dropdowns are empty
+    extracted_location, extracted_cuisine = "", ""
+    if preferences and (not location or not cuisine):
+        extracted_location, extracted_cuisine = extract_intent_from_text(
+            preferences, all_locations, all_cuisines
+        )
+
+    effective_location = location or extracted_location
+    effective_cuisine = cuisine or extracted_cuisine
+
+    if effective_location:
+        filtered = filtered[filtered['location'].str.contains(effective_location.lower(), na=False, case=False)]
     if budget:
         filtered = filtered[filtered['budget'].fillna('').str.lower() == budget.lower()]
-    if cuisine:
-        filtered = filtered[filtered['cuisine'].str.contains(cuisine.lower(), na=False, case=False)]
+    if effective_cuisine:
+        filtered = filtered[filtered['cuisine'].str.contains(effective_cuisine.lower(), na=False, case=False)]
     rating_num = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce')
     if min_rating > 0:
         filtered = filtered[rating_num >= min_rating]
+
+    # If filters leave nothing, fall back to top-rated across full dataset
+    if filtered.empty and (effective_location or effective_cuisine):
+        filtered = df.copy()
+        if effective_cuisine:
+            filtered = filtered[filtered['cuisine'].str.contains(effective_cuisine.lower(), na=False, case=False)]
+        rating_num = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce')
 
     filtered['rating_num_sort'] = rating_num.reindex(filtered.index).fillna(0)
     top_15 = filtered.sort_values(by="rating_num_sort", ascending=False).head(15)
@@ -71,12 +109,13 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences):
     top_15 = top_15.where(pd.notnull(top_15), None)
     results = top_15.to_dict(orient="records")
 
-    system_prompt = """You are an expert AI restaurant concierge. Your goal is to select the top 5 best matching restaurants from the provided pre-filtered list based on the user's explicit preferences and vibe.
+    system_prompt = """You are an expert AI restaurant concierge. Your goal is to select the top 5 best matching restaurants from the provided pre-filtered list based on the user's full request — including any location, cuisine, vibe, or food preferences mentioned.
 
 CRITICAL RULES:
 1. You MUST ONLY recommend restaurants from the provided candidate list. Do not invent or retrieve outside restaurants.
 2. If there are fewer than 5 candidates provided, return all of them.
 3. You must output ONLY a valid JSON object. Do not include conversational text, markdown formatting, or preamble before or after the JSON.
+4. If the user's prompt mentions specific food or a vibe, prioritize candidates that match it best.
 
 JSON SCHEMA:
 Return a JSON object with a single key 'restaurants' mapping to a list of objects. Each object must have:
@@ -84,7 +123,7 @@ Return a JSON object with a single key 'restaurants' mapping to a list of object
 - 'Cuisine': String, the cuisine it serves.
 - 'Rating': Number, the rating.
 - 'Cost': String or Number, the cost.
-- 'AI_Explanation': String, a highly engaging, personalized 1-2 sentence explanation of why this specific restaurant perfectly matches the user's vibe and preferences. Be persuasive and sound like a local foodie!
+- 'AI_Explanation': String, a highly engaging, personalized 1-2 sentence explanation of why this specific restaurant perfectly matches the user's request. Be persuasive and sound like a local foodie!
 """
 
     candidates_for_llm = []
@@ -93,18 +132,20 @@ Return a JSON object with a single key 'restaurants' mapping to a list of object
         candidates_for_llm.append({
             'name': r.get('name'),
             'cuisine': r.get('cuisine'),
+            'location': r.get('location'),
             'rating': r.get('rating'),
             'cost': r.get('cost'),
             'reviews': rev_str[:500] + "..." if len(rev_str) > 500 else rev_str
         })
 
     user_prompt = f"""
-User Preferences:
-Location: {location}
-Budget: {budget}
-Cuisine: {cuisine}
-Minimum Rating: {min_rating}
-Additional Preferences: {preferences}
+User's full request: "{preferences or 'Show me great restaurants'}"
+
+Additional filters applied:
+- Location: {effective_location or 'Any'}
+- Budget: {budget or 'Any'}
+- Cuisine: {effective_cuisine or 'Any'}
+- Minimum Rating: {min_rating}
 
 Pre-filtered Candidates:
 {json.dumps(candidates_for_llm, indent=2)}
@@ -741,19 +782,23 @@ if st.session_state.page == 'form':
             min_rating = st.slider("⭐ Min Rating", min_value=1.0, max_value=5.0, value=3.5, step=0.1)
 
         preferences = st.text_area(
-            "✨ Vibe & Preferences",
-            placeholder="e.g. romantic rooftop, craft cocktails, live music...",
+            "✨ Your Request",
+            placeholder="e.g. best pizza in Koramangala, romantic rooftop dinner, great biryani near HSR...",
             height=90
         )
 
         submitted = st.form_submit_button("✨  Curate My Experience", use_container_width=True)
 
     if submitted:
-        if not location or not cuisine or not preferences:
-            st.warning("Please fill out Location, Cuisine, and Vibe & Preferences to begin your search.")
+        # At least the prompt or one filter must be provided
+        if not preferences and not location and not cuisine:
+            st.warning("Please describe what you're looking for — or select a location / cuisine.")
         else:
             with st.spinner("Our AI concierge is curating the perfect spots for you..."):
-                restaurants = get_recommendations(df, location, budget, cuisine, min_rating, preferences)
+                restaurants = get_recommendations(
+                    df, location, budget, cuisine, min_rating, preferences,
+                    all_locations, all_cuisines
+                )
             st.session_state.restaurants = restaurants
             st.session_state.search_params = {
                 'location': location,
@@ -780,13 +825,18 @@ elif st.session_state.page == 'results':
             st.session_state.page = 'form'
             st.rerun()
     with col_summary:
+        # Build a compact summary showing only non-empty params
+        parts = []
+        if params.get('preferences'):
+            parts.append(f'<b>"{params["preferences"][:40]}{"..." if len(params["preferences"]) > 40 else ""}"</b>')
+        if params.get('location'):
+            parts.append(f'<b>📍 {params["location"]}</b>')
+        if params.get('cuisine'):
+            parts.append(f'<b>🥘 {params["cuisine"]}</b>')
+        parts.append(f'<b>💸 {params.get("budget", "medium")}</b>')
+        parts.append(f'<b>≥{params.get("min_rating", 3.5)}</b>★')
         st.markdown(
-            f'<p class="refine-summary">'
-            f'<b>{params.get("location","")}</b> · '
-            f'<b>{params.get("cuisine","")}</b> · '
-            f'<b>{params.get("budget","")}</b> budget · '
-            f'<b>≥{params.get("min_rating","")}</b>★'
-            f'</p>',
+            f'<p class="refine-summary">{" · ".join(parts)}</p>',
             unsafe_allow_html=True
         )
 
