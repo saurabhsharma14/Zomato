@@ -707,7 +707,9 @@ img { border-radius: 20px !important; box-shadow: none !important; }
 }
 
 /* Make the sidebar toggle super prominent (Innovative FAB) - Global */
-[data-testid="collapsedControl"] {
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stSidebarCollapseButton"] {
     position: fixed !important;
     bottom: 40px !important;
     left: 50% !important;
@@ -728,20 +730,28 @@ img { border-radius: 20px !important; box-shadow: none !important; }
     backdrop-filter: blur(10px) !important;
 }
 
-[data-testid="collapsedControl"]:hover {
+[data-testid="collapsedControl"]:hover,
+[data-testid="stSidebarCollapsedControl"]:hover,
+[data-testid="stSidebarCollapseButton"]:hover {
     transform: translateX(-50%) translateY(-4px) scale(1.03) !important;
     box-shadow: 0 12px 35px rgba(112,0,255,0.6) !important;
 }
 
-[data-testid="collapsedControl"]:active {
+[data-testid="collapsedControl"]:active,
+[data-testid="stSidebarCollapsedControl"]:active,
+[data-testid="stSidebarCollapseButton"]:active {
     transform: translateX(-50%) translateY(0) scale(0.98) !important;
 }
 
-[data-testid="collapsedControl"] svg {
+[data-testid="collapsedControl"] svg,
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stSidebarCollapseButton"] svg {
     display: none !important;
 }
 
-[data-testid="collapsedControl"]::before {
+[data-testid="collapsedControl"]::before,
+[data-testid="stSidebarCollapsedControl"]::before,
+[data-testid="stSidebarCollapseButton"]::before {
     content: "☰  Explore & Filter";
     font-family: 'Outfit', sans-serif;
     font-size: 1.1rem;
