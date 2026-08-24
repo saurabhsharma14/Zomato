@@ -88,6 +88,13 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences, 
         filtered = filtered[filtered['budget'].fillna('').str.lower() == budget.lower()]
     if effective_cuisine:
         filtered = filtered[filtered['cuisine'].str.contains(effective_cuisine.lower(), na=False, case=False)]
+    # Deduplicate by restaurant name (keep highest-rated entry per name)
+    filtered = filtered.copy()
+    rating_num_dedup = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce').fillna(0)
+    filtered['_rating_sort'] = rating_num_dedup
+    filtered = filtered.sort_values('_rating_sort', ascending=False).drop_duplicates(subset=['name'], keep='first')
+    filtered = filtered.drop(columns=['_rating_sort'])
+
     rating_num = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce')
     if min_rating > 0:
         filtered = filtered[rating_num >= min_rating]
@@ -97,17 +104,21 @@ def get_recommendations(df, location, budget, cuisine, min_rating, preferences, 
         filtered = df.copy()
         if effective_cuisine:
             filtered = filtered[filtered['cuisine'].str.contains(effective_cuisine.lower(), na=False, case=False)]
+        rating_num_dedup2 = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce').fillna(0)
+        filtered['_rating_sort'] = rating_num_dedup2
+        filtered = filtered.sort_values('_rating_sort', ascending=False).drop_duplicates(subset=['name'], keep='first')
+        filtered = filtered.drop(columns=['_rating_sort'])
         rating_num = pd.to_numeric(filtered['rating'].astype(str).str.split('/').str[0], errors='coerce')
 
     filtered['rating_num_sort'] = rating_num.reindex(filtered.index).fillna(0)
-    top_15 = filtered.sort_values(by="rating_num_sort", ascending=False).head(15)
-    top_15 = top_15.drop(columns=['rating_num_sort'])
+    top_20 = filtered.sort_values(by="rating_num_sort", ascending=False).head(20)
+    top_20 = top_20.drop(columns=['rating_num_sort'])
 
-    if top_15.empty:
-        return []
+    if top_20.empty:
+        return [], []
 
-    top_15 = top_15.where(pd.notnull(top_15), None)
-    results = top_15.to_dict(orient="records")
+    top_20 = top_20.where(pd.notnull(top_20), None)
+    results = top_20.to_dict(orient="records")
 
     system_prompt = """You are an expert AI restaurant concierge. Your goal is to select the top 5 best matching restaurants from the provided pre-filtered list based on the user's full request — including any location, cuisine, vibe, or food preferences mentioned.
 
@@ -116,7 +127,8 @@ CRITICAL RULES:
 2. If there are fewer than 5 candidates provided, return all of them.
 3. You must output ONLY a valid JSON object. Do not include conversational text, markdown formatting, or preamble before or after the JSON.
 4. If the user's prompt mentions specific food or a vibe, prioritize candidates that match it best.
-5. LANGUAGE & TONE MIRRORING — this is critical: detect the language and tone of the user's request and write the AI_Explanation in the exact same language and tone.
+5. NO DUPLICATES — each restaurant must appear exactly once in your response. Never repeat the same Name.
+6. LANGUAGE & TONE MIRRORING — this is critical: detect the language and tone of the user's request and write the AI_Explanation in the exact same language and tone.
    - If the user writes in Hindi or Hinglish (e.g. "girlfriend ke saath pizza khaana hai"), respond in the same casual Hinglish style — warm, fun, desi energy.
    - If they write in formal English, be polished and sophisticated.
    - If they write in casual English slang, match that vibe.
@@ -172,20 +184,50 @@ Please return the best 5 restaurants from this list in the requested JSON format
         )
         llm_response = completion.choices[0].message.content
         llm_json = json.loads(llm_response)
-        return llm_json.get("restaurants", [])
+        primary = llm_json.get("restaurants", [])
+
+        # Deduplicate LLM response by name (case-insensitive)
+        seen_names = set()
+        deduped_primary = []
+        for r in primary:
+            key = (r.get("Name") or r.get("name", "")).strip().lower()
+            if key and key not in seen_names:
+                seen_names.add(key)
+                deduped_primary.append(r)
+
+        # Build 'others' from candidates not chosen by LLM
+        others = []
+        for r in results:
+            rname = (r.get("name") or "").strip().lower()
+            if rname and rname not in seen_names:
+                others.append({
+                    "Name": r.get("name", "Unknown"),
+                    "Cuisine": r.get("cuisine", "N/A"),
+                    "Rating": r.get("rating", "N/A"),
+                    "Cost": r.get("cost", "N/A"),
+                    "AI_Explanation": None,
+                })
+
+        return deduped_primary, others[:5]
 
     except Exception as e:
         st.toast(f"⚠️ AI ranking unavailable, showing top results. ({e})", icon="⚠️")
+        seen = set()
         fallback = []
-        for r in results[:5]:
-            fallback.append({
-                "Name": r.get("name", "Unknown"),
-                "Cuisine": r.get("cuisine", "N/A"),
-                "Rating": r.get("rating", "N/A"),
-                "Cost": r.get("cost", "N/A"),
-                "AI_Explanation": "Highly rated based on your constraints."
-            })
-        return fallback
+        for r in results:
+            rname = (r.get("name") or "").strip().lower()
+            if rname not in seen:
+                seen.add(rname)
+                fallback.append({
+                    "Name": r.get("name", "Unknown"),
+                    "Cuisine": r.get("cuisine", "N/A"),
+                    "Rating": r.get("rating", "N/A"),
+                    "Cost": r.get("cost", "N/A"),
+                    "AI_Explanation": "Highly rated based on your constraints."
+                })
+            if len(fallback) == 5:
+                break
+        return fallback, []
 
 
 # ══════════════════════════════════════════════
@@ -715,6 +757,8 @@ if 'page' not in st.session_state:
     st.session_state.page = 'form'
 if 'restaurants' not in st.session_state:
     st.session_state.restaurants = []
+if 'other_options' not in st.session_state:
+    st.session_state.other_options = []
 if 'search_params' not in st.session_state:
     st.session_state.search_params = {}
 
@@ -800,11 +844,12 @@ if st.session_state.page == 'form':
             st.warning("Please describe what you're looking for — or select a location / cuisine.")
         else:
             with st.spinner("Our AI concierge is curating the perfect spots for you..."):
-                restaurants = get_recommendations(
+                restaurants, other_options = get_recommendations(
                     df, location, budget, cuisine, min_rating, preferences,
                     all_locations, all_cuisines
                 )
             st.session_state.restaurants = restaurants
+            st.session_state.other_options = other_options
             st.session_state.search_params = {
                 'location': location,
                 'cuisine': cuisine,
@@ -822,6 +867,7 @@ if st.session_state.page == 'form':
 elif st.session_state.page == 'results':
     params = st.session_state.search_params
     restaurants = st.session_state.restaurants
+    other_options = st.session_state.get('other_options', [])
 
     # ── Refine / back row ──
     col_back, col_summary = st.columns([1, 3])
@@ -896,6 +942,48 @@ elif st.session_state.page == 'results':
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+        # ── Other options section ──
+        if other_options:
+            st.markdown("""
+            <div style="margin: 32px 0 16px; padding-top: 24px; border-top: 1px solid rgba(160,32,240,0.15);">
+                <p style="font-family:'Outfit',sans-serif; font-size:1rem; font-weight:700;
+                           color:#6B5F8A; margin:0 0 4px; letter-spacing:0.3px;">
+                    OTHER OPTIONS THAT MAY INTEREST YOU
+                </p>
+                <p style="color:#3D3560; font-size:0.78rem; margin:0 0 16px;">More spots worth exploring</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            for j, r in enumerate(other_options):
+                name = r.get("Name") or r.get("name", "Unknown")
+                cuis = r.get("Cuisine") or r.get("cuisine", "N/A")
+                rating = r.get("Rating") or r.get("rating", "N/A")
+                cost = r.get("Cost") or r.get("cost", "N/A")
+
+                try:
+                    rn = float(rating)
+                    stars = "★" * int(rn) + ("½" if rn - int(rn) >= 0.5 else "")
+                except (ValueError, TypeError):
+                    stars = "★★★"
+
+                cuis_display = cuis.title() if isinstance(cuis, str) else cuis
+
+                st.markdown(f"""
+                <div class="r-card" style="animation-delay:{j*0.06}s; opacity:0.75;">
+                    <div class="r-top">
+                        <div class="r-rank" style="background:rgba(107,95,138,0.3); color:#6B5F8A; box-shadow:none;">{j+1}</div>
+                        <div class="r-info">
+                            <p class="r-name" style="font-size:1.1rem;">{name}</p>
+                            <span class="r-stars">{stars} {rating}</span>
+                        </div>
+                    </div>
+                    <div class="r-tags">
+                        <span class="r-tag">🥘 {cuis_display}</span>
+                        <span class="r-tag">💸 ₹{cost} for two</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.markdown("""
     <div class="ft">Made with 💜 by <b>District</b> — AI-Curated Dining Experiences</div>
