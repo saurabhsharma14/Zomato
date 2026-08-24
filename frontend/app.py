@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import json
 import os
@@ -813,90 +814,114 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# Inject JS: custom FAB + hide "Press Enter" hints
-st.markdown(
-    """
-    <script>
-    (function() {
+# Inject JS via components.html so we can use window.parent to escape the iframe
+# and manipulate the REAL page DOM — st.markdown strips <script>, st.html is sandboxed
+components.html("""
+<script>
+(function() {
+  var p = window.parent;  // The real Streamlit page
+  var pd = p.document;
 
-      /* ── 1. Hide "Press Enter to submit" hints ── */
-      const hideHints = () => {
-        document.querySelectorAll('div, small, span, p').forEach(el => {
-          if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
-            el.style.display = 'none';
-          }
-        });
-      };
-      hideHints();
-      new MutationObserver(hideHints).observe(document.body, { childList: true, subtree: true });
-
-      /* ── 2. Create the FAB ── */
-      function injectFAB() {
-        if (document.getElementById('district-fab')) return; // already injected
-
-        const fab = document.createElement('button');
-        fab.id = 'district-fab';
-        fab.innerHTML = '<span id="district-fab-icon">&#9776;</span><span id="district-fab-label">Filters</span>';
-        fab.setAttribute('aria-label', 'Open filters');
-
-        fab.addEventListener('click', function() {
-          // Try every known selector Streamlit has used across versions
-          const selectors = [
-            '[data-testid="collapsedControl"] button',
-            '[data-testid="stSidebarCollapsedControl"] button',
-            '[data-testid="stExpandSidebarButton"]',
-            '[data-testid="stSidebarCollapseButton"]',
-            '[data-testid="collapsedControl"]',
-            'button[aria-label="Open sidebar"]',
-            'button[aria-label="open sidebar"]',
-            'button[title="Open sidebar"]',
-            // Broader fallback: any button inside stHeader that has an SVG
-            '[data-testid="stHeader"] button',
-          ];
-
-          let toggled = false;
-          for (const sel of selectors) {
-            const btn = document.querySelector(sel);
-            if (btn) {
-              // Make it visible momentarily so it can be clicked
-              const prev = btn.style.cssText;
-              btn.style.cssText += '; display:block !important; visibility:visible !important; pointer-events:auto !important;';
-              btn.click();
-              btn.style.cssText = prev;
-              toggled = true;
-              break;
-            }
-          }
-
-          if (!toggled) {
-            // Hard fallback: toggle aria-expanded on the sidebar directly
-            const sidebar = document.querySelector('[data-testid="stSidebar"]');
-            if (sidebar) {
-              const expanded = sidebar.getAttribute('aria-expanded');
-              sidebar.setAttribute('aria-expanded', expanded === 'true' ? 'false' : 'true');
-            }
-          }
-        });
-
-        document.body.appendChild(fab);
+  /* ── 1. Inject FAB CSS into parent <head> ── */
+  if (!pd.getElementById('district-fab-style')) {
+    var style = pd.createElement('style');
+    style.id = 'district-fab-style';
+    style.textContent = `
+      #district-fab {
+        position: fixed;
+        bottom: 28px;
+        right: 24px;
+        z-index: 2147483647;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: linear-gradient(135deg, #7000FF, #A020F0, #B44FFF);
+        color: white;
+        border: none;
+        border-radius: 30px;
+        padding: 14px 22px;
+        font-family: 'Outfit', 'Inter', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        cursor: pointer;
+        box-shadow: 0 6px 28px rgba(112,0,255,0.55), 0 2px 8px rgba(0,0,0,0.4);
+        transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
       }
-
-      // Wait for body to be ready
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', injectFAB);
-      } else {
-        injectFAB();
+      #district-fab:hover {
+        transform: translateY(-3px) scale(1.04);
+        box-shadow: 0 10px 36px rgba(112,0,255,0.7);
       }
-      // Also re-inject on Streamlit re-runs (it may remove body children)
-      new MutationObserver(function(mutations) {
-        if (!document.getElementById('district-fab')) injectFAB();
-      }).observe(document.body, { childList: true });
+      #district-fab:active { transform: scale(0.96); }
+    `;
+    pd.head.appendChild(style);
+  }
 
-    })();
-    </script>
-    """,
-    unsafe_allow_html=True
-)
+  /* ── 2. Create & inject FAB into parent body ── */
+  function injectFAB() {
+    if (pd.getElementById('district-fab')) return;
+
+    var fab = pd.createElement('button');
+    fab.id = 'district-fab';
+    fab.setAttribute('aria-label', 'Open filters');
+    fab.innerHTML = '&#9776;&nbsp;&nbsp;Filters';
+
+    fab.addEventListener('click', function() {
+      // All selectors Streamlit has used for the sidebar toggle across versions
+      var selectors = [
+        '[data-testid="collapsedControl"] button',
+        '[data-testid="stSidebarCollapsedControl"] button',
+        '[data-testid="stExpandSidebarButton"]',
+        '[data-testid="stSidebarCollapseButton"]',
+        '[data-testid="collapsedControl"]',
+        'button[aria-label="Open sidebar"]',
+        'button[aria-label="open sidebar"]',
+        'button[title="Open sidebar"]',
+        '[data-testid="stHeader"] button',
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var btn = pd.querySelector(selectors[i]);
+        if (btn) {
+          var prev = btn.style.cssText;
+          btn.style.cssText = prev + ';display:block!important;visibility:visible!important;pointer-events:auto!important';
+          btn.click();
+          btn.style.cssText = prev;
+          return;
+        }
+      }
+      // Last resort: toggle aria-expanded
+      var sidebar = pd.querySelector('[data-testid="stSidebar"]');
+      if (sidebar) {
+        var exp = sidebar.getAttribute('aria-expanded');
+        sidebar.setAttribute('aria-expanded', exp === 'true' ? 'false' : 'true');
+      }
+    });
+
+    pd.body.appendChild(fab);
+  }
+
+  // Inject now and re-inject if Streamlit re-runs wipe the DOM
+  injectFAB();
+  new MutationObserver(function() {
+    if (!pd.getElementById('district-fab')) injectFAB();
+  }).observe(pd.body, { childList: true });
+
+  /* ── 3. Hide "Press Enter" hints in parent ── */
+  function hideHints() {
+    pd.querySelectorAll('div,small,span,p').forEach(function(el) {
+      if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
+        el.style.display = 'none';
+      }
+    });
+  }
+  hideHints();
+  new MutationObserver(hideHints).observe(pd.body, { childList: true, subtree: true });
+
+})();
+</script>
+""", height=0)
 
 
 # ══════════════════════════════════════════════
