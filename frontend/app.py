@@ -10,7 +10,7 @@ st.set_page_config(
     page_title="District — AI Restaurant Concierge",
     page_icon="💜",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 
@@ -708,65 +708,63 @@ img { border-radius: 20px !important; box-shadow: none !important; }
     .welcome-features { flex-direction: column; align-items: center; gap: 20px; }
 }
 
-/* ── Sleek Mobile UX: Floating Filter Button ── */
+/* ── Hide native Streamlit sidebar toggle completely — our JS FAB handles it ── */
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapsedControl"],
-[data-testid="stExpandSidebarButton"] {
-    background: linear-gradient(135deg, rgba(160,32,240,0.15), rgba(112,0,255,0.15)) !important;
-    border: 1px solid rgba(160,32,240,0.4) !important;
-    border-radius: 20px !important;
-    padding: 6px 14px 6px 12px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-    color: white !important;
-    box-shadow: 0 4px 15px rgba(112,0,255,0.2) !important;
-    transition: all 0.3s ease !important;
-    margin: 8px 12px !important;
-    width: auto !important;
-    height: auto !important;
-    position: relative !important;
-    z-index: 9999 !important;
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapseButton"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
 }
 
-[data-testid="collapsedControl"]:hover,
-[data-testid="stSidebarCollapsedControl"]:hover,
-[data-testid="stExpandSidebarButton"]:hover {
-    background: linear-gradient(135deg, rgba(160,32,240,0.3), rgba(112,0,255,0.3)) !important;
-    border-color: rgba(160,32,240,0.6) !important;
-    box-shadow: 0 6px 20px rgba(112,0,255,0.3) !important;
-}
-
-[data-testid="collapsedControl"] svg,
-[data-testid="stSidebarCollapsedControl"] svg,
-[data-testid="stExpandSidebarButton"] svg {
-    color: #F0EAFF !important;
-    fill: currentColor !important;
-    width: 18px !important;
-    height: 18px !important;
-    display: block !important;
-}
-
-[data-testid="collapsedControl"]::after,
-[data-testid="stSidebarCollapsedControl"]::after,
-[data-testid="stExpandSidebarButton"]::after {
-    content: "Filters";
+/* ── Custom FAB ── */
+#district-fab {
+    position: fixed;
+    bottom: 28px;
+    right: 24px;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #7000FF, #A020F0, #B44FFF);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    padding: 14px 22px;
     font-family: 'Outfit', sans-serif;
-    font-size: 0.9rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    color: #F0EAFF;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    box-shadow: 0 6px 28px rgba(112,0,255,0.55), 0 2px 8px rgba(0,0,0,0.4);
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+}
+#district-fab:hover {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: 0 10px 36px rgba(112,0,255,0.7);
+}
+#district-fab:active {
+    transform: scale(0.96);
+}
+#district-fab-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+#district-fab-label {
+    line-height: 1;
 }
 
-/* Mobile Sidebar Styling */
+/* Mobile Sidebar — glass overlay style */
 @media (max-width: 768px) {
     section[data-testid="stSidebar"] {
-        background: rgba(13, 11, 26, 0.95) !important;
-        backdrop-filter: blur(24px) !important;
-        -webkit-backdrop-filter: blur(24px) !important;
-        border-right: 1px solid rgba(160, 32, 240, 0.3) !important;
-        box-shadow: 4px 0 40px rgba(0,0,0,0.7) !important;
+        background: rgba(10, 8, 22, 0.97) !important;
+        backdrop-filter: blur(28px) !important;
+        -webkit-backdrop-filter: blur(28px) !important;
+        border-right: 1px solid rgba(160, 32, 240, 0.35) !important;
+        box-shadow: 6px 0 50px rgba(0,0,0,0.8) !important;
     }
 }
 </style>
@@ -815,28 +813,86 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-# Inject JS to forcefully remove the "Press Enter to submit" text which Streamlit injects dynamically
+# Inject JS: custom FAB + hide "Press Enter" hints
 st.html(
     """
     <script>
-    const hideInstructions = () => {
-        // Find all elements that might contain the instruction text
-        const elements = document.querySelectorAll('div, small, span, p');
-        elements.forEach(el => {
-            if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
-                el.style.display = 'none';
-                el.style.opacity = '0';
-                el.style.visibility = 'hidden';
-            }
+    (function() {
+
+      /* ── 1. Hide "Press Enter to submit" hints ── */
+      const hideHints = () => {
+        document.querySelectorAll('div, small, span, p').forEach(el => {
+          if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
+            el.style.display = 'none';
+          }
         });
-    };
-    
-    // Run initially
-    hideInstructions();
-    
-    // Set an observer to catch elements as they are dynamically added by Streamlit
-    const observer = new MutationObserver(hideInstructions);
-    observer.observe(document.body, { childList: true, subtree: true });
+      };
+      hideHints();
+      new MutationObserver(hideHints).observe(document.body, { childList: true, subtree: true });
+
+      /* ── 2. Create the FAB ── */
+      function injectFAB() {
+        if (document.getElementById('district-fab')) return; // already injected
+
+        const fab = document.createElement('button');
+        fab.id = 'district-fab';
+        fab.innerHTML = '<span id="district-fab-icon">&#9776;</span><span id="district-fab-label">Filters</span>';
+        fab.setAttribute('aria-label', 'Open filters');
+
+        fab.addEventListener('click', function() {
+          // Try every known selector Streamlit has used across versions
+          const selectors = [
+            '[data-testid="collapsedControl"] button',
+            '[data-testid="stSidebarCollapsedControl"] button',
+            '[data-testid="stExpandSidebarButton"]',
+            '[data-testid="stSidebarCollapseButton"]',
+            '[data-testid="collapsedControl"]',
+            'button[aria-label="Open sidebar"]',
+            'button[aria-label="open sidebar"]',
+            'button[title="Open sidebar"]',
+            // Broader fallback: any button inside stHeader that has an SVG
+            '[data-testid="stHeader"] button',
+          ];
+
+          let toggled = false;
+          for (const sel of selectors) {
+            const btn = document.querySelector(sel);
+            if (btn) {
+              // Make it visible momentarily so it can be clicked
+              const prev = btn.style.cssText;
+              btn.style.cssText += '; display:block !important; visibility:visible !important; pointer-events:auto !important;';
+              btn.click();
+              btn.style.cssText = prev;
+              toggled = true;
+              break;
+            }
+          }
+
+          if (!toggled) {
+            // Hard fallback: toggle aria-expanded on the sidebar directly
+            const sidebar = document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+              const expanded = sidebar.getAttribute('aria-expanded');
+              sidebar.setAttribute('aria-expanded', expanded === 'true' ? 'false' : 'true');
+            }
+          }
+        });
+
+        document.body.appendChild(fab);
+      }
+
+      // Wait for body to be ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectFAB);
+      } else {
+        injectFAB();
+      }
+      // Also re-inject on Streamlit re-runs (it may remove body children)
+      new MutationObserver(function(mutations) {
+        if (!document.getElementById('district-fab')) injectFAB();
+      }).observe(document.body, { childList: true });
+
+    })();
     </script>
     """
 )
