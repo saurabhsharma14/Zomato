@@ -26,6 +26,15 @@ def clean_data(df):
     if 'cuisine' in df.columns:
         df['cuisine'] = df['cuisine'].astype(str).str.lower().str.strip()
         
+    # Keep extra context columns if they exist
+    if 'url' in df.columns:
+        df['url'] = df['url'].astype(str).str.strip()
+    if 'dish_liked' in df.columns:
+        df['dish_liked'] = df['dish_liked'].astype(str).str.strip()
+    if 'reviews_list' in df.columns:
+        # Some reviews can be massively long, we truncate them so the parquet file doesn't explode in size
+        df['reviews_list'] = df['reviews_list'].astype(str).str.slice(0, 800)
+        
     # Map numerical costs to budget tiers (Low, Medium, High)
     if 'cost' in df.columns:
         # Remove commas and convert to float
@@ -77,6 +86,11 @@ def main():
     df_clean.to_sql("restaurants", conn, if_exists="replace", index=False)
     conn.close()
     print(f"Saved to database at {db_path}")
+
+    # Save to Parquet for Streamlit app
+    parquet_path = os.path.join(os.path.dirname(__file__), "cleaned_restaurants.parquet")
+    df_clean.to_parquet(parquet_path, index=False)
+    print(f"Saved to {parquet_path}")
 
 if __name__ == "__main__":
     main()
