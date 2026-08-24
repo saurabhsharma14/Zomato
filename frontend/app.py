@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import base64
+import streamlit.components.v1 as components
 from groq import Groq
 
 # ── Page Config ──────────────────────────────
@@ -191,15 +192,16 @@ button[kind="header"],
 }
 [data-testid="stHeader"]::after { display: none !important; }
 
-/* ── Force sidebar expanded on load ── */
+/* ── Force sidebar expanded and ideal size ── */
 section[data-testid="stSidebar"] {
+    width: 380px !important;
+    min-width: 380px !important;
+    max-width: 380px !important;
     transform: none !important;
-    min-width: 300px !important;
 }
 section[data-testid="stSidebar"][aria-expanded="false"] {
-    transform: none !important;
-    min-width: 300px !important;
     margin-left: 0 !important;
+    transform: none !important;
 }
 
 /* ── App Background ── */
@@ -267,6 +269,29 @@ section[data-testid="stSidebar"] input::placeholder,
 section[data-testid="stSidebar"] textarea::placeholder {
     color: var(--text-3) !important;
     font-size: 0.85rem !important;
+}
+
+/* Hide Input Instructions (Press Enter to submit) */
+[data-testid="InputInstructions"],
+[data-testid="stInputInstructions"],
+[data-testid="stWidgetInstructions"],
+[data-testid="stFormSubmitInstructions"],
+.stTextInput small,
+.stTextArea small,
+div[class*="InputInstructions"] {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+}
+
+/* Force hide the suffix container inside baseweb inputs where Streamlit injects 'Press Enter...' */
+div[data-baseweb="input"] > div:not(:first-child),
+div[data-baseweb="textarea"] > div:not(:first-child) {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
 /* Slider */
@@ -725,6 +750,35 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
+# Inject JS to forcefully remove the "Press Enter to submit" text which Streamlit injects dynamically
+components.html(
+    """
+    <script>
+    const doc = window.parent.document;
+    const hideInstructions = () => {
+        // Find all elements that might contain the instruction text
+        const elements = doc.querySelectorAll('div, small, span, p');
+        elements.forEach(el => {
+            if (el.innerText && (el.innerText.includes('Press Enter to') || el.innerText.includes('Press enter to'))) {
+                el.style.display = 'none';
+                el.style.opacity = '0';
+                el.style.visibility = 'hidden';
+            }
+        });
+    };
+    
+    // Run initially
+    hideInstructions();
+    
+    // Set an observer to catch elements as they are dynamically added by Streamlit
+    const observer = new MutationObserver(hideInstructions);
+    observer.observe(doc.body, { childList: true, subtree: true });
+    </script>
+    """,
+    height=0,
+    width=0
+)
+
 
 # ══════════════════════════════════════════════
 # HERO
@@ -751,8 +805,8 @@ st.markdown(f"""
 # MAIN CONTENT
 # ══════════════════════════════════════════════
 if submitted:
-    if not location:
-        st.warning("Please enter a location to begin your search.")
+    if not location or not cuisine or not preferences:
+        st.warning("Please fill out all the mandatory fields (Location, Cuisine, Vibe & Preferences) to begin your search.")
     else:
         with st.spinner("Our AI concierge is curating the perfect spots for you..."):
             restaurants = get_recommendations(df, location, budget, cuisine, min_rating, preferences)
