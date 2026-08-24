@@ -20,64 +20,16 @@ st.set_page_config(
 
 @st.cache_data(show_spinner=False)
 def load_data():
-    """Load and clean the Zomato dataset from Hugging Face.
+    """Load the pre-cleaned Zomato dataset from local storage.
     Cached so it only runs once per session / deployment."""
-    from datasets import load_dataset
-
-    dataset = load_dataset("ManikaSaini/zomato-restaurant-recommendation", split="train")
+    import os
     
-    # ── Memory Optimization ──
-    # Only keep the columns we need before converting to pandas to avoid OOM on Streamlit Cloud
-    needed_cols = ['name', 'location', 'cuisines', 'approx_cost(for two people)', 'rate']
-    dataset = dataset.select_columns([c for c in needed_cols if c in dataset.column_names])
-    
-    df = dataset.to_pandas()
-    
-    del dataset
-    import gc
-    gc.collect()
-
-    # ── Cleaning (from data/ingest_and_clean.py) ──
-    rename_mapping = {
-        'approx_cost(for two people)': 'cost',
-        'rate': 'rating',
-        'cuisines': 'cuisine'
-    }
-    df = df.rename(columns=rename_mapping)
-
-    # Drop rows missing critical columns
-    critical_cols = [c for c in ['name', 'location', 'cuisine', 'cost', 'rating'] if c in df.columns]
-    df = df.dropna(subset=critical_cols)
-
-    # Standardize text
-    if 'location' in df.columns:
-        df['location'] = df['location'].astype(str).str.lower().str.strip()
-    if 'cuisine' in df.columns:
-        df['cuisine'] = df['cuisine'].astype(str).str.lower().str.strip()
-
-    # Parse cost → numeric → budget tier
-    if 'cost' in df.columns:
-        df['cost'] = df['cost'].astype(str).str.replace(',', '').str.strip()
-        df['cost'] = pd.to_numeric(df['cost'], errors='coerce')
-
-        def categorize_budget(cost):
-            if pd.isna(cost):
-                return 'unknown'
-            elif cost < 500:
-                return 'low'
-            elif cost <= 1500:
-                return 'medium'
-            else:
-                return 'high'
-
-        df['budget'] = df['cost'].apply(categorize_budget)
-
-    # Parse rating
-    if 'rating' in df.columns:
-        df['rating'] = df['rating'].astype(str).str.split('/').str[0].str.strip()
-        df['rating'] = pd.to_numeric(df['rating'], errors='coerce')
-        df = df.dropna(subset=['rating'])
-
+    # Check both potential paths depending on where streamlit is run from
+    file_path = "data/cleaned_restaurants.parquet"
+    if not os.path.exists(file_path):
+        file_path = os.path.join(os.path.dirname(__file__), "..", "data", "cleaned_restaurants.parquet")
+        
+    df = pd.read_parquet(file_path)
     return df
 
 
